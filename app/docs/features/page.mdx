@@ -1,0 +1,275 @@
+---
+title: Features
+description: Solidarity features overview
+---
+
+# Features
+
+Solid(ar)ity combines cutting-edge privacy technology with intuitive user experience. Here's everything you can do with the app.
+
+## Business Card Management
+
+### Create Your Card
+
+Build your digital business card with complete control:
+
+- **Personal Information**: Name, title, company, email, phone
+- **Social Links**: LinkedIn, Twitter, GitHub, personal website
+- **Profile Picture**: Optional photo or avatar
+- **Custom Fields**: Add any additional information you want
+
+### Privacy Levels
+
+Each field can have its own privacy level:
+
+#### 🌍 Public
+Visible to everyone you share with. Perfect for:
+- Name
+- Company
+- Job title
+- Public social media
+
+#### 💼 Professional
+Shared only with verified professionals in your network:
+- Work email
+- Direct phone line
+- LinkedIn profile
+
+#### 🔒 Personal
+Reserved for close contacts and trusted connections:
+- Personal email
+- Mobile number
+- Personal social media
+
+**How it works:**
+```swift
+let card = BusinessCard(
+    name: "Alice", // Public
+    workEmail: "alice@company.com", // Professional
+    personalEmail: "alice@personal.com", // Personal
+    privacyLevel: .selective
+)
+```
+
+When sharing, you choose which level to disclose. The recipient only sees information at or below the selected level.
+
+## Sharing Methods
+
+### Proximity Sharing (P2P)
+
+**The killer feature.** Share cards with people nearby without internet:
+
+- **Automatic Discovery**: Open the app, and it finds nearby users
+- **One-Tap Share**: Tap a discovered peer to send your card
+- **Zero Configuration**: Works instantly on WiFi or Bluetooth
+- **Secure**: Encrypted end-to-end, no intermediaries
+
+**How to use:**
+- Open app and go to "Nearby" tab
+- Wait for peers to appear (usually &lt;1 second)
+- Tap their name to send your card
+- Choose privacy level to share
+
+**Behind the scenes:**
+- Uses Apple MultipeerConnectivity
+- Bluetooth LE for discovery
+- WiFi Direct for fast transfers
+- Encrypted with TLS
+
+### QR Code Sharing
+
+**Works everywhere.** Generate a scannable QR code:
+
+- **Instant Generation**: Create QR in milliseconds
+- **Customizable**: Choose what information to encode
+- **Save to Photos**: Export for use in email signatures, slides, etc.
+- **Works Offline**: No internet needed to scan
+
+**How to use:**
+- Go to your card details
+- Tap "Share → QR Code"
+- Select privacy level
+- Show to others or save to Photos
+
+**Format:**
+```json
+{
+  "version": "1.0",
+  "name": "Alice",
+  "company": "TechCorp",
+  "email": "alice@company.com",
+  "proof": "zk_proof_data_here"
+}
+```
+
+### AirDrop
+
+**Apple's magic.** Share via native iOS sharing:
+
+- **System Integration**: Uses native Share Sheet
+- **Contact Suggestions**: iOS suggests frequent contacts
+- **Cross-Device**: Works with Mac, iPad, iPhone
+- **Fallback**: If P2P fails, use AirDrop
+
+### ShareLink
+
+**Long-distance sharing.** Create a shareable deep link:
+
+- **Send via Messages**: Text someone your card
+- **Email**: Include in email signature
+- **Social Media**: Share on Twitter, LinkedIn
+- **Expiring Links**: Set expiration time (1 hour, 1 day, 1 week)
+
+**Link format:**
+```
+solidarity://card/share?id=abc123&sig=xyz789
+```
+
+Links open the app and prompt to save the card.
+
+## Zero-Knowledge Group Verification
+
+### Trusted Groups
+
+Create invite-only groups with verified membership:
+
+- **Anonymous Membership**: Prove you're in a group without revealing identity
+- **No Central Authority**: Groups managed via shared secrets
+- **Cryptographic Proof**: Uses Semaphore protocol
+
+### How It Works
+
+- **Create Identity**: Generate a private identity (never shared)
+- **Join Group**: Admin adds your identity commitment
+- **Generate Proof**: Prove membership to anyone
+- **Verify**: Others verify your proof without seeing identity
+
+**Example Use Cases:**
+
+- **Company Employees**: Verify "I work at TechCorp" without showing employee ID
+- **Conference Attendees**: Prove attendance without sharing ticket info
+- **Alumni Network**: Verify alma mater without revealing graduation year
+- **Professional Associations**: Prove membership without sharing member number
+
+### Creating a Group
+
+```swift
+// Admin creates group
+let group = try Group.create(
+    name: "TechCorp Employees",
+    description: "Verified TechCorp staff"
+)
+
+// Add members (identity commitments only)
+try group.addMember(commitment: aliceCommitment)
+try group.addMember(commitment: bobCommitment)
+
+// Share group ID (public, no privacy leak)
+let groupId = group.id
+```
+
+### Proving Membership
+
+```swift
+// Alice generates proof
+let proof = try alice.generateProof(
+    groupId: groupId,
+    signal: "I'm a TechCorp employee"
+)
+
+// Bob verifies proof (learns nothing about Alice)
+let isValid = try verifyProof(proof, groupId: groupId)
+// Result: true ✓
+```
+
+## Card Collections
+
+### Received Cards
+
+Organize cards you've received:
+
+- **Search & Filter**: Find cards by name, company, tags
+- **Smart Groups**: Auto-group by company, location, date met
+- **Notes**: Add private notes to remember context
+- **Follow-Up**: Set reminders to reconnect
+
+### Favorites
+
+Mark important contacts:
+
+- **Quick Access**: Starred cards appear at top
+- **Custom Sorting**: Organize by importance
+- **Bulk Actions**: Share favorites with new contacts
+
+## Apple Wallet Integration
+
+### Save to Wallet
+
+Export cards to Apple Wallet (coming in v1.1):
+
+- **Native Integration**: Cards appear in Wallet app
+- **Lock Screen Access**: Quick access from lock screen
+- **Auto-Update**: Changes sync automatically
+- **NFC**: Tap to share (iPhone XS+)
+
+**Requirements:**
+- Apple Developer Pass Type ID
+- Pass Certificate configured
+
+## Privacy & Security Features
+
+### Local Encryption
+
+All data encrypted at rest:
+
+- **Algorithm**: AES-GCM 256-bit
+- **Key Storage**: iOS Keychain (hardware-backed)
+- **No Cloud**: Everything stays on device
+
+### Selective Disclosure
+
+Choose what to share, every time:
+
+- **Per-Share Control**: Different info for different people
+- **Revocation**: Can't un-share, but can update card
+- **Audit Log**: See who you've shared with (local only)
+
+### No Tracking
+
+Zero telemetry and analytics:
+
+- **No Servers**: Can't track what we don't see
+- **No Analytics**: No Firebase, no Mixpanel, nothing
+- **No Ads**: No ad networks, no tracking SDKs
+- **No Identifiers**: No IDFA, no device fingerprinting
+
+## Accessibility
+
+Built for everyone:
+
+- **VoiceOver**: Full screen reader support
+- **Dynamic Type**: Respects system font size
+- **Reduce Motion**: Respects accessibility settings
+- **High Contrast**: Supports high contrast mode
+- **Dark Mode**: Fully supports dark appearance
+
+## Internationalization
+
+Currently supports:
+
+- **English**: Full support
+- **More Coming**: Chinese, Japanese, Spanish planned for v1.1
+
+## What's Next?
+
+Planned features for future releases:
+
+- **Apple Wallet Signing** (v1.1): Implementation complete, needs certificate
+- **Advanced Selective Disclosure** (v1.2): Field-level ZK proofs
+- **ENS Integration** (v1.3): Ethereum Name Service for Web3 identity
+- **Cross-Platform** (v2.0): Android and web versions
+- **Shoutout Features** (v2.0): Public endorsements with ZK proofs
+
+---
+
+Next: Learn how to contribute in the [Development](/docs/development) guide
