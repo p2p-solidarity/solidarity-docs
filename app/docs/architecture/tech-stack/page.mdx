@@ -1,0 +1,645 @@
+---
+title: Technology Stack
+description: Complete technical stack and implementation details
+---
+
+# Technology Stack
+
+Complete overview of Solidarity's technology stack, architecture patterns, and implementation details.
+
+## Frontend Architecture
+
+### SwiftUI + MVVM
+
+Solidarity uses **SwiftUI** with the **MVVM (Model-View-ViewModel)** pattern for clean separation of concerns.
+
+```swift
+// Model: BusinessCard.swift
+struct BusinessCard: Codable, Identifiable {
+    let id: UUID
+    var name: String
+    var company: String?
+    var email: String?
+    var phone: String?
+    var privacyLevel: PrivacyLevel
+
+    enum PrivacyLevel: String, Codable {
+        case public, professional, personal
+    }
+}
+
+// ViewModel: BusinessCardViewModel.swift
+@Observable
+class BusinessCardViewModel {
+    var cards: [BusinessCard] = []
+    var isLoading = false
+    var errorMessage: String?
+
+    private let storage: StorageService
+    private let encryption: EncryptionService
+
+    func createCard(_ card: BusinessCard) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let encrypted = try encryption.encrypt(card)
+            try await storage.save(encrypted)
+            cards.append(card)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func loadCards() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let encrypted = try await storage.loadAll()
+            cards = try encrypted.map { try encryption.decrypt($0) }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// View: BusinessCardView.swift
+struct BusinessCardView: View {
+    @State private var viewModel = BusinessCardViewModel()
+
+    var body: some View {
+        List(viewModel.cards) { card in
+            CardRow(card: card)
+        }
+        .task {
+            await viewModel.loadCards()
+        }
+        .overlay {
+            if viewModel.isLoading {
+                ProgressView()
+            }
+        }
+    }
+}
+```
+
+### Navigation
+
+Using SwiftUI's modern navigation system:
+
+```swift
+@main
+struct SolidarityApp: App {
+    var body: some Scene {
+        WindowGroup {
+            NavigationStack {
+                HomeView()
+            }
+        }
+    }
+}
+
+struct HomeView: View {
+    var body: some View {
+        TabView {
+            CardsListView()
+                .tabItem {
+                    Label("Cards", systemImage: "person.crop.rectangle")
+                }
+
+            NearbyView()
+                .tabItem {
+                    Label("Nearby", systemImage: "wave.3.right")
+                }
+
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gear")
+                }
+        }
+    }
+}
+```
+
+## Core Services
+
+### Storage Service
+
+Local-first data persistence:
+
+```swift
+actor StorageService {
+    private let fileManager = FileManager.default
+    private let documentsURL: URL
+
+    init() {
+        documentsURL = fileManager.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        )[0]
+    }
+
+    func save<T: Codable>(_ item: T, withID id: String) async throws {
+        let data = try JSONEncoder().encode(item)
+        let fileURL = documentsURL.appendingPathComponent("\(id).json")
+        try data.write(to: fileURL)
+    }
+
+    func load<T: Codable>(_ type: T.Type, withID id: String) async throws -> T {
+        let fileURL = documentsURL.appendingPathComponent("\(id).json")
+        let data = try Data(contentsOf: fileURL)
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    func loadAll<T: Codable>(_ type: T.Type) async throws -> [T] {
+        let files = try fileManager.contentsOfDirectory(at: documentsURL, includingPropertiesForKeys: nil)
+        return try await files.asyncMap { url in
+            let data = try Data(contentsOf: url)
+            return try JSONDecoder().decode(T.self, from: data)
+        }
+    }
+}
+```
+
+### Encryption Service
+
+AES-GCM encryption for all stored data:
+
+```swift
+import CryptoKit
+
+class EncryptionService {
+    private let keychain = KeychainService()
+
+    func encrypt<T: Codable>(_ item: T) throws -> Data {
+        let key = try getOrCreateKey()
+        let data = try JSONEncoder().encode(item)
+
+        let sealedBox = try AES.GCM.seal(data, using: key)
+        return sealedBox.combined!
+    }
+
+    func decrypt<T: Codable>(_ data: Data, as type: T.Type) throws -> T {
+        let key = try getKey()
+        let sealedBox = try AES.GCM.SealedBox(combined: data)
+        let decrypted = try AES.GCM.open(sealedBox, using: key)
+
+        return try JSONDecoder().decode(T.self, from: decrypted)
+    }
+
+    private func getOrCreateKey() throws -> SymmetricKey {
+        if let existingKey = try keychain.load(key: "encryption-key") {
+            return existingKey
+        }
+
+        let newKey = SymmetricKey(size: .bits256)
+        try keychain.save(key: "encryption-key", value: newKey)
+        return newKey
+    }
+}
+```
+
+### P2P Service
+
+MultipeerConnectivity wrapper:
+
+```swift
+import MultipeerConnectivity
+
+class P2PService: NSObject, ObservableObject {
+    @Published var nearbyPeers: [MCPeerID] = []
+    @Published var receivedCards: [BusinessCard] = []
+
+    private let serviceType = "solidarity-p2p"
+    private let peerID: MCPeerID
+    private let session: MCSession
+    private let advertiser: MCNearbyServiceAdvertiser
+    private let browser: MCNearbyServiceBrowser
+
+    override init() {
+        self.peerID = MCPeerID(displayName: UIDevice.current.name)
+        self.session = MCSession(
+            peer: peerID,
+            securityIdentity: nil,
+            encryptionPreference: .required
+        )
+        self.advertiser = MCNearbyServiceAdvertiser(
+            peer: peerID,
+            discoveryInfo: nil,
+            serviceType: serviceType
+        )
+        self.browser = MCNearbyServiceBrowser(
+            peer: peerID,
+            serviceType: serviceType
+        )
+
+        super.init()
+
+        session.delegate = self
+        advertiser.delegate = self
+        browser.delegate = self
+    }
+
+    func startSharing() {
+        advertiser.startAdvertisingPeer()
+        browser.startBrowsingForPeers()
+    }
+
+    func stopSharing() {
+        advertiser.stopAdvertisingPeer()
+        browser.stopBrowsingForPeers()
+    }
+
+    func send(_ card: BusinessCard, to peer: MCPeerID) throws {
+        let data = try JSONEncoder().encode(card)
+        try session.send(data, toPeers: [peer], with: .reliable)
+    }
+}
+
+// MARK: - MCSessionDelegate
+extension P2PService: MCSessionDelegate {
+    func session(
+        _ session: MCSession,
+        peer peerID: MCPeerID,
+        didChange state: MCSessionState
+    ) {
+        DispatchQueue.main.async {
+            switch state {
+            case .connected:
+                print("Connected to \(peerID.displayName)")
+            case .notConnected:
+                self.nearbyPeers.removeAll { $0 == peerID }
+            case .connecting:
+                print("Connecting to \(peerID.displayName)")
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    func session(
+        _ session: MCSession,
+        didReceive data: Data,
+        fromPeer peerID: MCPeerID
+    ) {
+        guard let card = try? JSONDecoder().decode(BusinessCard.self, from: data) else {
+            return
+        }
+
+        DispatchQueue.main.async {
+            self.receivedCards.append(card)
+        }
+    }
+
+    func session(
+        _ session: MCSession,
+        didReceive stream: InputStream,
+        withName streamName: String,
+        fromPeer peerID: MCPeerID
+    ) {}
+
+    func session(
+        _ session: MCSession,
+        didStartReceivingResourceWithName resourceName: String,
+        fromPeer peerID: MCPeerID,
+        with progress: Progress
+    ) {}
+
+    func session(
+        _ session: MCSession,
+        didFinishReceivingResourceWithName resourceName: String,
+        fromPeer peerID: MCPeerID,
+        at localURL: URL?,
+        withError error: Error?
+    ) {}
+}
+
+// MARK: - MCNearbyServiceAdvertiserDelegate
+extension P2PService: MCNearbyServiceAdvertiserDelegate {
+    func advertiser(
+        _ advertiser: MCNearbyServiceAdvertiser,
+        didReceiveInvitationFromPeer peerID: MCPeerID,
+        withContext context: Data?,
+        invitationHandler: @escaping (Bool, MCSession?) -> Void
+    ) {
+        // Auto-accept invitations
+        invitationHandler(true, session)
+    }
+}
+
+// MARK: - MCNearbyServiceBrowserDelegate
+extension P2PService: MCNearbyServiceBrowserDelegate {
+    func browser(
+        _ browser: MCNearbyServiceBrowser,
+        foundPeer peerID: MCPeerID,
+        withDiscoveryInfo info: [String: String]?
+    ) {
+        DispatchQueue.main.async {
+            if !self.nearbyPeers.contains(peerID) {
+                self.nearbyPeers.append(peerID)
+            }
+        }
+
+        // Auto-invite discovered peers
+        browser.invitePeer(peerID, to: session, withContext: nil, timeout: 30)
+    }
+
+    func browser(
+        _ browser: MCNearbyServiceBrowser,
+        lostPeer peerID: MCPeerID
+    ) {
+        DispatchQueue.main.async {
+            self.nearbyPeers.removeAll { $0 == peerID }
+        }
+    }
+}
+```
+
+### QR Code Service
+
+QR generation and scanning:
+
+```swift
+import CoreImage
+import AVFoundation
+
+class QRCodeService {
+    func generate(from card: BusinessCard) -> UIImage? {
+        let data = try? JSONEncoder().encode(card)
+        guard let data = data else { return nil }
+
+        let filter = CIFilter.qrCodeGenerator()
+        filter.setValue(data, forKey: "inputMessage")
+        filter.setValue("H", forKey: "inputCorrectionLevel")
+
+        guard let ciImage = filter.outputImage else { return nil }
+
+        let transform = CGAffineTransform(scaleX: 10, y: 10)
+        let scaledImage = ciImage.transformed(by: transform)
+
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) else {
+            return nil
+        }
+
+        return UIImage(cgImage: cgImage)
+    }
+}
+
+class QRScannerService: NSObject, ObservableObject {
+    @Published var scannedCard: BusinessCard?
+
+    private let captureSession = AVCaptureSession()
+    private let metadataOutput = AVCaptureMetadataOutput()
+
+    func startScanning() {
+        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video),
+              let videoInput = try? AVCaptureDeviceInput(device: videoCaptureDevice) else {
+            return
+        }
+
+        captureSession.addInput(videoInput)
+        captureSession.addOutput(metadataOutput)
+
+        metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+        metadataOutput.metadataObjectTypes = [.qr]
+
+        captureSession.startRunning()
+    }
+
+    func stopScanning() {
+        captureSession.stopRunning()
+    }
+}
+
+extension QRScannerService: AVCaptureMetadataOutputObjectsDelegate {
+    func metadataOutput(
+        _ output: AVCaptureMetadataOutput,
+        didOutput metadataObjects: [AVMetadataObject],
+        from connection: AVCaptureConnection
+    ) {
+        guard let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
+              let stringValue = object.stringValue,
+              let data = stringValue.data(using: .utf8),
+              let card = try? JSONDecoder().decode(BusinessCard.self, from: data) else {
+            return
+        }
+
+        scannedCard = card
+        stopScanning()
+    }
+}
+```
+
+## Data Flow
+
+### Creating and Sharing Flow
+
+```
+User Action → ViewModel → Service Layer → Storage/Network
+     ↓           ↓            ↓              ↓
+  SwiftUI    @Observable   Actor/Class   Local/P2P
+```
+
+**Example: Create Card**
+```
+User fills form
+    ↓
+BusinessCardViewModel.createCard()
+    ↓
+EncryptionService.encrypt()
+    ↓
+StorageService.save()
+    ↓
+Update @Published cards array
+    ↓
+SwiftUI automatically updates UI
+```
+
+## Dependencies
+
+### Swift Package Manager
+
+All dependencies managed via SPM:
+
+```swift
+// Package.swift
+dependencies: [
+    .package(url: "https://github.com/mopro/mopro-swift", from: "0.1.0"),
+    // No other external dependencies!
+]
+```
+
+**Philosophy:** Minimize dependencies, use native frameworks when possible.
+
+### Native Frameworks
+
+- **SwiftUI**: Modern declarative UI
+- **MultipeerConnectivity**: P2P networking
+- **CryptoKit**: Encryption
+- **CoreImage**: QR code generation
+- **AVFoundation**: QR code scanning
+- **PassKit**: Apple Wallet integration
+- **LocalAuthentication**: Biometric auth
+- **Combine**: Reactive programming (where needed)
+
+## Performance Optimization
+
+### Concurrency
+
+Using Swift's modern concurrency:
+
+```swift
+// Async/await for async operations
+func loadCards() async throws -> [BusinessCard] {
+    try await storage.loadAll(BusinessCard.self)
+}
+
+// Actor for thread-safe state
+actor CardStore {
+    private var cards: [BusinessCard] = []
+
+    func add(_ card: BusinessCard) {
+        cards.append(card)
+    }
+
+    func getAll() -> [BusinessCard] {
+        cards
+    }
+}
+
+// TaskGroup for parallel operations
+func loadAllData() async {
+    await withTaskGroup(of: Void.self) { group in
+        group.addTask { await loadCards() }
+        group.addTask { await loadGroups() }
+        group.addTask { await loadProofs() }
+    }
+}
+```
+
+### Memory Management
+
+```swift
+// Weak references to avoid retain cycles
+class CardViewModel: ObservableObject {
+    private weak var storage: StorageService?
+    private weak var encryption: EncryptionService?
+}
+
+// Lazy loading for expensive operations
+lazy var zkProofService: ZKProofService = {
+    ZKProofService()
+}()
+
+// Image caching
+class ImageCache {
+    static let shared = ImageCache()
+    private var cache = NSCache<NSString, UIImage>()
+
+    func get(_ key: String) -> UIImage? {
+        cache.object(forKey: key as NSString)
+    }
+
+    func set(_ image: UIImage, forKey key: String) {
+        cache.setObject(image, forKey: key as NSString)
+    }
+}
+```
+
+## Testing
+
+### Unit Tests
+
+```swift
+import XCTest
+@testable import Solidarity
+
+final class BusinessCardTests: XCTestCase {
+    func testCardEncryption() async throws {
+        let service = EncryptionService()
+        let card = BusinessCard(
+            id: UUID(),
+            name: "Test User",
+            company: "Test Corp"
+        )
+
+        let encrypted = try service.encrypt(card)
+        let decrypted = try service.decrypt(encrypted, as: BusinessCard.self)
+
+        XCTAssertEqual(card.name, decrypted.name)
+    }
+}
+```
+
+### UI Tests
+
+```swift
+import XCTest
+
+final class SolidarityUITests: XCTestCase {
+    func testCreateCard() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.buttons["Create Card"].tap()
+        app.textFields["Name"].tap()
+        app.textFields["Name"].typeText("John Doe")
+        app.buttons["Save"].tap()
+
+        XCTAssertTrue(app.staticTexts["John Doe"].exists)
+    }
+}
+```
+
+## Build Configuration
+
+### Debug vs Release
+
+```swift
+#if DEBUG
+let isDebug = true
+let apiEndpoint = "http://localhost:3000"
+#else
+let isDebug = false
+let apiEndpoint = "https://api.solidarity.gg"
+#endif
+```
+
+### Compiler Optimizations
+
+```bash
+# Debug: Fast compilation, no optimization
+swiftc -Onone
+
+# Release: Full optimization
+swiftc -O
+```
+
+## Platform Requirements
+
+- **iOS**: 16.0+
+- **Xcode**: 15.0+
+- **Swift**: 5.9+
+
+## Future Improvements
+
+### v1.2+
+- CloudKit sync (optional)
+- WidgetKit support
+- Siri Shortcuts
+- Live Activities
+
+### v2.0+
+- macOS app (Catalyst)
+- watchOS companion
+- Android version
+- Web viewer
+
+---
+
+That's the complete technology stack! Check out the other architecture sections for more details:
+- [Privacy & Security](/docs/architecture/privacy)
+- [Peer-to-Peer Networking](/docs/architecture/p2p-networking)
+- [Zero-Knowledge Proofs](/docs/architecture/zero-knowledge)

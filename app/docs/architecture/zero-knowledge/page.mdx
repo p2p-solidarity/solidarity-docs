@@ -1,0 +1,454 @@
+---
+title: Zero-Knowledge Proofs
+description: Anonymous group verification with Semaphore
+---
+
+# Zero-Knowledge Proofs
+
+Solidarity uses zero-knowledge proofs to enable anonymous group membership verification.
+
+## What are Zero-Knowledge Proofs?
+
+Zero-knowledge proofs (ZKPs) allow you to prove something is true without revealing the underlying information.
+
+### Example Scenario
+
+**Without ZKP:**
+```
+Alice: "I work at TechCorp"
+Bob: "Prove it - show me your employee ID"
+Alice: *shows ID with name, photo, employee number*
+```
+Bob now knows Alice's identity and employee details.
+
+**With ZKP:**
+```
+Alice: "I work at TechCorp"
+Bob: "Prove it"
+Alice: *generates cryptographic proof*
+Bob: *verifies proof* "Confirmed: You work at TechCorp"
+```
+Bob confirms employment without learning anything else about Alice.
+
+## Semaphore Protocol
+
+Solidarity uses the [Semaphore protocol](https://semaphore.appliedzkp.org/) for anonymous signaling and group membership.
+
+### Core Concepts
+
+#### 1. Identity
+
+Each user generates a private identity:
+
+```swift
+import Semaphore
+
+let identity = try Identity.generateRandom()
+// identity.privateKey - NEVER share
+// identity.commitment - Public identifier
+```
+
+**Key properties:**
+- Private key: Secret, never shared
+- Commitment: Public identifier derived from private key
+- Commitment reveals nothing about private key
+
+#### 2. Groups
+
+Groups are collections of identity commitments:
+
+```swift
+struct Group {
+    let id: UUID
+    let name: String
+    var members: Set<String> // Identity commitments
+    let depth: Int = 20       // Merkle tree depth
+}
+```
+
+**Group structure:**
+- Public group ID
+- Public list of commitments
+- No personal information stored
+
+#### 3. Proofs
+
+Generate proof of membership without revealing identity:
+
+```swift
+let proof = try semaphore.generateProof(
+    identity: identity,
+    groupId: groupId,
+    signal: "I'm a verified member",
+    externalNullifier: "unique-context-id"
+)
+```
+
+**Proof components:**
+- Merkle proof of membership
+- Signal (custom message)
+- Nullifier (prevents reuse)
+- No identity information leaked
+
+## Implementation with Mopro
+
+Solidarity uses [Mopro](https://zkmopro.org/) for native Swift ZK proof generation.
+
+### Mopro Architecture
+
+```
+┌─────────────────────────────────────┐
+│         Swift App Layer             │
+│  (BusinessCard, P2P, Storage)       │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│      Mopro Swift Bindings           │
+│   (Swift wrapper for Rust libs)     │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│       Mopro Rust Core               │
+│  (ZK circuits, Semaphore logic)     │
+└──────────────┬──────────────────────┘
+               │
+┌──────────────▼──────────────────────┐
+│      Platform (iOS/ARM64)           │
+│  (Hardware-accelerated crypto)      │
+└─────────────────────────────────────┘
+```
+
+### Setup
+
+```swift
+import Mopro
+
+class ZKProofService {
+    private let mopro: MoproCircom
+
+    init() {
+        // Initialize with Semaphore circuit
+        self.mopro = try! MoproCircom()
+        try! mopro.initialize(
+            zkeyPath: Bundle.main.path(forResource: "semaphore", ofType: "zkey")!,
+            wasmPath: Bundle.main.path(forResource: "semaphore", ofType: "wasm")!
+        )
+    }
+}
+```
+
+### Generating Proofs
+
+```swift
+extension ZKProofService {
+    func generateProof(
+        identity: Identity,
+        groupId: UUID,
+        signal: String
+    ) throws -> SemaphoreProof {
+        // Prepare circuit inputs
+        let inputs = [
+            "identitySecret": identity.privateKey,
+            "identityPathElements": groupMerkleTree.pathElements,
+            "identityPathIndices": groupMerkleTree.pathIndices,
+            "signal": signal,
+            "externalNullifier": groupId.uuidString
+        ]
+
+        // Generate proof (takes 1-3 seconds on device)
+        let proof = try mopro.generateProof(inputs: inputs)
+
+        return SemaphoreProof(
+            proof: proof.proof,
+            publicSignals: proof.publicSignals,
+            nullifier: calculateNullifier(identity, groupId)
+        )
+    }
+}
+```
+
+### Verifying Proofs
+
+```swift
+extension ZKProofService {
+    func verifyProof(
+        _ proof: SemaphoreProof,
+        groupId: UUID,
+        expectedSignal: String
+    ) throws -> Bool {
+        // Verify cryptographic proof
+        let isValid = try mopro.verifyProof(
+            proof: proof.proof,
+            publicSignals: proof.publicSignals
+        )
+
+        guard isValid else { return false }
+
+        // Verify signal matches
+        guard proof.signal == expectedSignal else { return false }
+
+        // Verify nullifier hasn't been used before
+        guard !isNullifierUsed(proof.nullifier, in: groupId) else {
+            throw ZKError.nullifierAlreadyUsed
+        }
+
+        return true
+    }
+}
+```
+
+## Use Cases
+
+### 1. Company Verification
+
+Prove you work at a company without revealing your identity.
+
+```swift
+// Alice joins TechCorp group
+let techCorpGroup = try Group.create(name: "TechCorp Employees")
+try techCorpGroup.addMember(commitment: alice.commitment)
+
+// Alice proves employment to Bob
+let proof = try alice.generateProof(
+    groupId: techCorpGroup.id,
+    signal: "I work at TechCorp"
+)
+
+// Bob verifies (learns nothing about Alice's identity)
+let isEmployee = try verifyProof(proof, groupId: techCorpGroup.id)
+// Result: true ✓
+```
+
+### 2. Event Attendance
+
+Prove you attended an event without sharing ticket details.
+
+```swift
+// Event organizer creates group
+let conferenceGroup = try Group.create(name: "Tech Conference 2024")
+
+// Add attendees (only commitments, not identities)
+for attendee in attendees {
+    try conferenceGroup.addMember(commitment: attendee.commitment)
+}
+
+// Attendee proves participation
+let proof = try attendee.generateProof(
+    groupId: conferenceGroup.id,
+    signal: "I attended Tech Conference 2024"
+)
+```
+
+### 3. Professional Certification
+
+Prove certification without revealing certificate number.
+
+```swift
+let certifiedGroup = try Group.create(name: "AWS Certified Developers")
+
+// Professional generates proof
+let proof = try professional.generateProof(
+    groupId: certifiedGroup.id,
+    signal: "I am AWS certified"
+)
+
+// Potential employer verifies
+let isCertified = try verifyProof(proof, groupId: certifiedGroup.id)
+```
+
+### 4. Alumni Network
+
+Verify alma mater without revealing graduation year.
+
+```swift
+let alumniGroup = try Group.create(name: "Stanford Alumni")
+
+let proof = try graduate.generateProof(
+    groupId: alumniGroup.id,
+    signal: "I'm a Stanford graduate"
+)
+```
+
+## Creating and Managing Groups
+
+### Group Creation (Admin)
+
+```swift
+class GroupService {
+    func createGroup(name: String, description: String) throws -> Group {
+        let group = Group(
+            id: UUID(),
+            name: name,
+            description: description,
+            members: []
+        )
+
+        // Store group locally
+        try storage.save(group)
+
+        return group
+    }
+
+    func addMember(commitment: String, to group: Group) throws {
+        var updatedGroup = group
+        updatedGroup.members.insert(commitment)
+
+        // Rebuild Merkle tree with new member
+        updatedGroup.merkleTree = buildMerkleTree(from: updatedGroup.members)
+
+        try storage.save(updatedGroup)
+    }
+}
+```
+
+### Joining a Group (Member)
+
+```swift
+class MembershipService {
+    func requestMembership(
+        identity: Identity,
+        groupId: UUID
+    ) throws -> MembershipRequest {
+        return MembershipRequest(
+            groupId: groupId,
+            commitment: identity.commitment, // Share only commitment
+            timestamp: Date()
+        )
+    }
+}
+```
+
+**Flow:**
+1. User generates identity (once)
+2. Shares commitment with group admin
+3. Admin adds commitment to group
+4. User can now generate proofs
+
+## Performance
+
+### Proof Generation
+
+| Device | Time |
+|--------|------|
+| iPhone 15 Pro | ~1.0s |
+| iPhone 14 | ~1.5s |
+| iPhone 13 | ~2.0s |
+| iPhone 12 | ~2.5s |
+
+### Proof Verification
+
+| Device | Time |
+|--------|------|
+| All devices | ~50ms |
+
+### Optimization Strategies
+
+```swift
+class ProofCache {
+    private var cache: [String: SemaphoreProof] = [:]
+
+    func getCachedProof(
+        identity: Identity,
+        groupId: UUID,
+        signal: String
+    ) -> SemaphoreProof? {
+        let key = "\(identity.commitment)-\(groupId)-\(signal)"
+        return cache[key]
+    }
+
+    func cacheProof(
+        _ proof: SemaphoreProof,
+        identity: Identity,
+        groupId: UUID,
+        signal: String
+    ) {
+        let key = "\(identity.commitment)-\(groupId)-\(signal)"
+        cache[key] = proof
+    }
+}
+```
+
+**Tips:**
+- Cache proofs for frequently used groups
+- Generate proofs in background
+- Show loading indicator during generation
+
+## Security Considerations
+
+### Identity Management
+
+**Best Practices:**
+- Generate identity once, backup securely
+- Never share private key
+- Store in iOS Keychain
+- Use biometric protection
+
+```swift
+class IdentityStorage {
+    func saveIdentity(_ identity: Identity) throws {
+        let data = try JSONEncoder().encode(identity.privateKey)
+
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "zk-identity",
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw IdentityError.storageFailed
+        }
+    }
+}
+```
+
+### Nullifier Management
+
+Prevent proof reuse with nullifiers:
+
+```swift
+struct NullifierStore {
+    private var usedNullifiers: Set<String> = []
+
+    mutating func markAsUsed(_ nullifier: String) {
+        usedNullifiers.insert(nullifier)
+    }
+
+    func isUsed(_ nullifier: String) -> Bool {
+        return usedNullifiers.contains(nullifier)
+    }
+}
+```
+
+### Group Integrity
+
+**Admin responsibilities:**
+- Verify members before adding commitments
+- Keep group membership up to date
+- Protect admin keys
+- Audit membership changes
+
+## Future Enhancements
+
+### Planned for v1.2+
+
+**Advanced Selective Disclosure**
+- Field-level ZK proofs
+- Prove specific attributes (e.g., "over 18" without revealing age)
+
+**Cross-Group Proofs**
+- Prove membership in multiple groups
+- Complex group operations (AND, OR, NOT)
+
+**Revocable Credentials**
+- Time-limited group membership
+- Revocation lists for invalidated members
+
+**Social Graphs**
+- Anonymous connection networks
+- Reputation without identity
+
+---
+
+Next: Learn about the [Technology Stack](/docs/architecture/tech-stack)

@@ -1,13 +1,15 @@
 ---
-title: Getting Started
-description: Getting started with Solidarity
+title: Contributing
+description: Contributing to Solidarity development
 ---
 
-# Getting Started
+# Contributing
 
-Welcome to Solid(ar)ity! This guide will help you get started with building and running the app.
+Welcome to Solidarity! This guide will help you get started with building the app and contributing to the documentation.
 
-## Prerequisites
+## Contributing to the App
+
+### Prerequisites
 
 Before you begin, make sure you have the following installed:
 
@@ -15,16 +17,16 @@ Before you begin, make sure you have the following installed:
 - **macOS 13.0+** (Ventura or later)
 - **Apple Developer Account** (for device testing and distribution)
 
-## Quick Start
+### Quick Start
 
-### Clone the Repository
+#### Clone the Repository
 
 ```bash
 git clone https://github.com/kidneyweakx/solidarity.git
 cd solidarity/airmeishi
 ```
 
-### Open in Xcode
+#### Open in Xcode
 
 ```bash
 open airmeishi.xcodeproj
@@ -32,29 +34,29 @@ open airmeishi.xcodeproj
 
 All dependencies are managed via Swift Package Manager and will be automatically resolved when you open the project.
 
-### Build and Run
+#### Build and Run
 
 Press **⌘+R** or click the "Run" button in Xcode to build and launch the app in the simulator.
 
-## Testing P2P Features
+### Testing P2P Features
 
-Since Solid(ar)ity is built around peer-to-peer networking, you'll need two devices to test the proximity features:
+Since Solidarity is built around peer-to-peer networking, you'll need two devices to test the proximity features:
 
-### Option 1: Two Physical Devices
+#### Option 1: Two Physical Devices
 
 - Connect both devices to the same WiFi network
 - Install the app on both devices via Xcode or TestFlight
 - Open the app on both devices
 - They should automatically discover each other
 
-### Option 2: Device + Simulator
+#### Option 2: Device + Simulator
 
 - Connect your physical device to the same network as your Mac
 - Run the app on your device
 - Run another instance in the iOS Simulator
 - Enable network sharing in simulator settings
 
-### Testing QR Code Sharing
+#### Testing QR Code Sharing
 
 The easiest way to test without multiple devices:
 
@@ -63,7 +65,7 @@ The easiest way to test without multiple devices:
 - Save the QR code to Photos
 - Use another device or QR scanner app to scan it
 
-## Project Structure
+### Project Structure
 
 ```
 airmeishi/
@@ -78,16 +80,9 @@ airmeishi/
 └── airmeishiUITests/         # UI tests
 ```
 
-## Next Steps
+### Troubleshooting
 
-- Learn about the [Architecture](/docs/architecture) behind Solid(ar)ity
-- Explore all [Features](/docs/features) available
-- Check out the [Development](/docs/development) guide for contributing
-- Read the [API Reference](/docs/api) for technical details
-
-## Troubleshooting
-
-### Dependencies not resolving
+#### Dependencies not resolving
 
 If Swift Package Manager fails to resolve dependencies:
 
@@ -95,14 +90,14 @@ If Swift Package Manager fails to resolve dependencies:
 - Clean the build folder: **⌘+Shift+K**
 - Rebuild: **⌘+B**
 
-### MultipeerConnectivity not working
+#### MultipeerConnectivity not working
 
 Make sure you've added the required permissions to `Info.plist`:
 
 - `NSLocalNetworkUsageDescription`
 - `NSBonjourServices`
 
-### Simulator networking issues
+#### Simulator networking issues
 
 Try resetting the simulator's network settings:
 

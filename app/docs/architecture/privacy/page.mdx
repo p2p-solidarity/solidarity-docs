@@ -1,0 +1,281 @@
+---
+title: Privacy & Security
+description: How Solidarity protects your data
+---
+
+# Privacy & Security
+
+Solidarity's privacy-first architecture ensures your data stays under your control.
+
+## Local-Only Storage
+
+### Your Data Never Leaves Your Device
+
+**No Cloud Servers**
+- All business cards stored locally on your iPhone
+- No external databases or cloud storage
+- No account creation required
+- Complete data ownership
+
+**Military-Grade Encryption**
+- AES-GCM 256-bit encryption for all stored data
+- Encryption keys stored in iOS Keychain (hardware-backed)
+- Even with device access, your data remains protected
+
+### iOS Keychain Integration
+
+```swift
+class EncryptionService {
+    func encrypt(_ data: Data) throws -> Data {
+        let key = getOrCreateEncryptionKey() // Stored in Keychain
+        return try AES.GCM.seal(data, using: key).combined
+    }
+
+    func decrypt(_ data: Data) throws -> Data {
+        let key = getEncryptionKey()
+        let sealedBox = try AES.GCM.SealedBox(combined: data)
+        return try AES.GCM.open(sealedBox, using: key)
+    }
+}
+```
+
+**Key Management:**
+- Encryption keys stored in **Keychain** (hardware-backed when available)
+- Never exported or transmitted
+- Unique per app installation
+
+## Three-Level Privacy System
+
+### Technical Implementation
+
+Each privacy level creates a filtered version of your card with different encryption keys.
+
+```swift
+enum PrivacyLevel: String, Codable {
+    case public      // Basic professional info
+    case professional // Full work contact details
+    case personal    // Complete information
+}
+
+struct BusinessCard: Codable {
+    let id: UUID
+    var name: String              // Public
+    var company: String?          // Public
+    var workEmail: String?        // Professional
+    var workPhone: String?        // Professional
+    var personalEmail: String?    // Personal
+    var personalPhone: String?    // Personal
+    var privacyLevel: PrivacyLevel
+}
+```
+
+### Privacy Level Breakdown
+
+#### 🌍 Public Level
+**Visible to everyone**
+- Name
+- Company
+- Job title
+- Public social media
+
+**Use cases:**
+- Large networking events
+- Conference badge QR codes
+- Public-facing materials
+
+#### 💼 Professional Level
+**Shared with verified business contacts**
+- All public information
+- Work email
+- Direct phone line
+- LinkedIn profile
+- Professional social media
+
+**Use cases:**
+- Business meetings
+- Client interactions
+- Professional networking
+
+#### 🔒 Personal Level
+**Only for trusted connections**
+- All professional information
+- Personal email
+- Mobile number
+- Personal social media
+- Additional notes
+
+**Use cases:**
+- Close colleagues
+- Personal connections
+- Long-term relationships
+
+### Selective Disclosure
+
+When sharing, you choose which level to disclose. Recipients only see information at or below the selected level.
+
+```swift
+func shareCard(card: BusinessCard, level: PrivacyLevel) -> BusinessCard {
+    var filteredCard = card
+
+    switch level {
+    case .public:
+        filteredCard.workEmail = nil
+        filteredCard.workPhone = nil
+        filteredCard.personalEmail = nil
+        filteredCard.personalPhone = nil
+    case .professional:
+        filteredCard.personalEmail = nil
+        filteredCard.personalPhone = nil
+    case .personal:
+        // Share everything
+        break
+    }
+
+    return filteredCard
+}
+```
+
+## Zero Tracking
+
+### No Telemetry or Analytics
+
+**What we DON'T collect:**
+- No usage analytics
+- No crash reports (unless you explicitly send them)
+- No behavioral tracking
+- No advertising IDs
+
+**What we DON'T use:**
+- No Firebase
+- No Mixpanel
+- No ad networks
+- No tracking SDKs
+- No device fingerprinting
+
+### No Servers, No Tracking
+
+Since Solidarity has no servers, we literally cannot track your activity:
+- Can't see who you share with
+- Can't see what information you share
+- Can't see when or where you use the app
+- Can't build a profile of your network
+
+## Security Architecture
+
+### Multi-Layer Protection
+
+#### Device Level
+- iOS Keychain for sensitive data storage
+- App sandboxing prevents other apps from accessing data
+- Biometric authentication (Face ID/Touch ID) support
+
+#### Network Level
+- All peer-to-peer connections encrypted with TLS
+- Perfect forward secrecy (each session uses unique keys)
+- No data transmitted to external servers
+
+#### Application Level
+- Granular privacy controls per sharing session
+- Automatic data expiration options (for shared links)
+- Audit trail of what was shared when
+
+### Threat Model
+
+**Protected Against:**
+- ✅ Server breaches (no servers exist)
+- ✅ Network eavesdropping (encrypted P2P)
+- ✅ Identity tracking (zero-knowledge proofs)
+- ✅ Unauthorized device access (local encryption)
+- ✅ Data mining (no analytics)
+
+**Not Protected Against:**
+- ⚠️ Physical device access (requires device security)
+- ⚠️ Malicious recipients (user must trust who they share with)
+- ⚠️ Social engineering (user discretion required)
+
+### Privacy Guarantees
+
+1. **No Data Collection**: Zero telemetry, no analytics
+2. **Local Only**: Nothing leaves device without explicit user action
+3. **Encrypted at Rest**: All data protected with AES-GCM
+4. **Anonymous Proofs**: ZK proofs reveal no identity information
+5. **Selective Sharing**: User controls what information to disclose
+
+## Data Retention
+
+### Local Storage Only
+
+**You control retention:**
+- Delete cards anytime
+- No cloud backup (unless you choose iCloud)
+- No recovery after deletion
+
+**Received cards:**
+- Stored locally only
+- You can delete anytime
+- Sender cannot revoke (once shared, it's yours)
+
+### What Happens When You Share
+
+1. You choose privacy level
+2. Filtered card data created
+3. Data encrypted for transmission
+4. Recipient receives and stores locally
+5. **No record kept** of the transaction
+
+## Biometric Authentication
+
+Optional Face ID/Touch ID protection:
+
+```swift
+import LocalAuthentication
+
+class AuthenticationService {
+    func authenticateUser() async throws -> Bool {
+        let context = LAContext()
+        let reason = "Unlock your business cards"
+
+        return try await context.evaluatePolicy(
+            .deviceOwnerAuthenticationWithBiometrics,
+            localizedReason: reason
+        )
+    }
+}
+```
+
+**Features:**
+- Optional (disabled by default)
+- Device hardware-backed
+- No biometric data stored in app
+
+## Audit Trail
+
+Local-only logging of sharing activity:
+
+```swift
+struct ShareLog: Codable {
+    let timestamp: Date
+    let recipientName: String?
+    let privacyLevel: PrivacyLevel
+    let method: ShareMethod // P2P, QR, Link
+}
+```
+
+**Audit features:**
+- View who you've shared with
+- See what privacy level was used
+- Review sharing history
+- **Stored locally only** - never transmitted
+
+## Future Privacy Features
+
+Planned for upcoming versions:
+
+- **Advanced Selective Disclosure** (v1.2): Field-level ZK proofs
+- **Revocable Credentials** (v1.3): Expire shared information
+- **Privacy Zones** (v2.0): Location-based privacy rules
+- **Self-Destructing Messages** (v2.0): Time-limited shares
+
+---
+
+Next: Learn about [Peer-to-Peer Networking](/docs/architecture/p2p-networking)
