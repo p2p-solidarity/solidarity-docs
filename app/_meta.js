@@ -1,9 +1,6 @@
 export default {
-  docs: {
-    type: 'page',
-    title: 'Documentation',
-  },
-  index: {
-    display: 'hidden',
-  },
+  index: 'Introduction',
+  'usage': 'Usage Guide',
+  'architecture': 'Architecture',
+  'contribute': 'Contributing'
 }
