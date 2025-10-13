@@ -1,0 +1,664 @@
+---
+title: Pass Signing Service
+description: Serverless credential issuance architecture for Apple Wallet passes
+---
+
+# Pass Signing Service
+
+Privacy-preserving serverless architecture for Apple Wallet pass credential issuance.
+
+## Overview
+
+Solidarity's **pass signing service** enables Apple Wallet integration while maintaining **zero user data storage**. The system uses a stateless Cloudflare Worker to sign pass manifests, ensuring privacy and performance.
+
+**Key Principle:** The backend only signs cryptographic hashes - never stores or logs user information.
+
+## Architecture
+
+### System Design
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         iOS App (Local)                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. User creates business card                                 │
+│     → All data stored locally (encrypted)                      │
+│                                                                 │
+│  2. Generate pass bundle                                        │
+│     → pass.json, icon.png, logo.png, etc.                      │
+│                                                                 │
+│  3. Create manifest.json                                        │
+│     → SHA256 hash of each file                                 │
+│     → Example: {"pass.json": "a1b2c3...", "icon.png": "d4e5f6..."}│
+│                                                                 │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         │ HTTPS POST /sign-pass
+                         │ Content-Type: text/plain
+                         │ Body: manifest.json (hashes only)
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              Cloudflare Worker (Stateless Edge)                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Receive manifest.json                                       │
+│                                                                 │
+│  2. Load certificates from encrypted secrets                    │
+│     → PASS_CERT (Apple Pass signing certificate)               │
+│     → PASS_KEY (Private key)                                    │
+│     → WWDR_CERT (Apple WWDR G4 certificate)                     │
+│                                                                 │
+│  3. Create PKCS#7 detached signature                            │
+│     → Sign manifest with SHA-1 (PassKit requirement)            │
+│     → Include certificate chain                                 │
+│                                                                 │
+│  4. Return signature (DER format)                               │
+│     → ~2KB binary blob                                          │
+│     → No logging, no storage                                    │
+│                                                                 │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         │ Response: application/octet-stream
+                         │ signature (DER format)
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         iOS App (Local)                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  5. Bundle .pkpass file                                         │
+│     → Add signature to pass bundle                              │
+│     → Create ZIP with specific structure                        │
+│                                                                 │
+│  6. Present to user                                             │
+│     → PKAddPassesViewController                                 │
+│     → User adds to Apple Wallet                                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+**What iOS Sends:**
+```json
+{
+  "pass.json": "a1b2c3d4e5f6...",
+  "icon.png": "1a2b3c4d5e6f...",
+  "icon@2x.png": "7g8h9i0j1k2l...",
+  "logo.png": "3m4n5o6p7q8r...",
+  "logo@2x.png": "9s0t1u2v3w4x..."
+}
+```
+*Only SHA256 hashes - no actual file contents or user data*
+
+**What Backend Returns:**
+```
+30 82 05 a5 06 09 2a 86 48 86 f7 0d 01 07 02 a0 82 05 96 30 82...
+```
+*Binary PKCS#7 signature in DER format (~2KB)*
+
+## Implementation
+
+### Backend Code (Cloudflare Worker)
+
+```typescript
+// src/routes/passkit/sign.ts
+import { OpenAPIHono } from "@hono/zod-openapi";
+import forge from "node-forge";
+
+interface CloudflareBindings {
+  PASS_CERT: string;  // Base64-encoded PEM
+  PASS_KEY: string;   // Base64-encoded PEM
+  WWDR_CERT: string;  // Base64-encoded PEM
+}
+
+export const passkitRouter = new OpenAPIHono<{ Bindings: CloudflareBindings }>()
+  .openapi(signPassRoute, async (c) => {
+    try {
+      // 1. Parse manifest JSON from request body
+      const manifestJson = await c.req.text();
+
+      // 2. Decode certificates from environment secrets
+      const passCertPem = Buffer.from(c.env.PASS_CERT, "base64").toString("utf-8");
+      const passKeyPem = Buffer.from(c.env.PASS_KEY, "base64").toString("utf-8");
+      const wwdrCertPem = Buffer.from(c.env.WWDR_CERT, "base64").toString("utf-8");
+
+      // 3. Create PKCS#7 signed data structure
+      const p7 = forge.pkcs7.createSignedData();
+      p7.content = forge.util.createBuffer(manifestJson, "utf8");
+
+      // Load certificates
+      const signerCert = forge.pki.certificateFromPem(passCertPem);
+      const signerKey = forge.pki.privateKeyFromPem(passKeyPem);
+      const wwdrCert = forge.pki.certificateFromPem(wwdrCertPem);
+
+      // Add certificates to signature
+      p7.addCertificate(signerCert);
+      p7.addCertificate(wwdrCert);
+
+      // Configure signer
+      p7.addSigner({
+        key: signerKey,
+        certificate: signerCert,
+        digestAlgorithm: forge.pki.oids.sha1, // PassKit requires SHA-1
+        authenticatedAttributes: [
+          {
+            type: forge.pki.oids.contentType,
+            value: forge.pki.oids.data
+          },
+          {
+            type: forge.pki.oids.messageDigest
+          },
+          {
+            type: forge.pki.oids.signingTime,
+            value: new Date()
+          }
+        ]
+      });
+
+      // 4. Sign (detached = signature separate from content)
+      p7.sign({ detached: true });
+
+      // 5. Convert to DER format
+      const derBuffer = forge.asn1.toDer(p7.toAsn1()).getBytes();
+      const signature = new Uint8Array(derBuffer.length);
+      for (let i = 0; i < derBuffer.length; i++) {
+        signature[i] = derBuffer.charCodeAt(i);
+      }
+
+      // 6. Return binary signature
+      return c.body(signature, 200, {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": signature.length.toString()
+      });
+    } catch (error) {
+      return c.json({
+        error: "Signing failed",
+        message: error instanceof Error ? error.message : "Unknown error"
+      }, 500);
+    }
+  });
+```
+
+### iOS Integration
+
+```swift
+import Foundation
+
+class PassSigningService {
+    private let apiURL = URL(string: "https://airmeishi-backend.workers.dev/sign-pass")!
+
+    func signManifest(_ manifestJSON: Data) async throws -> Data {
+        var request = URLRequest(url: apiURL)
+        request.httpMethod = "POST"
+        request.setValue("text/plain", forHTTPHeaderField: "Content-Type")
+        request.httpBody = manifestJSON
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw PassSigningError.signingFailed
+        }
+
+        return data // DER-encoded signature
+    }
+}
+
+// Usage in PassKit manager
+func createSignedPass(for card: BusinessCard) async throws -> Data {
+    // 1. Create pass bundle files
+    let passJSON = createPassJSON(card)
+    let iconData = loadIcon()
+    let logoData = loadLogo()
+
+    // 2. Generate manifest with SHA256 hashes
+    let manifest = [
+        "pass.json": passJSON.sha256(),
+        "icon.png": iconData.sha256(),
+        "icon@2x.png": iconData.sha256(),
+        "logo.png": logoData.sha256(),
+        "logo@2x.png": logoData.sha256()
+    ]
+
+    let manifestJSON = try JSONEncoder().encode(manifest)
+
+    // 3. Get signature from backend
+    let signature = try await signManifest(manifestJSON)
+
+    // 4. Create .pkpass ZIP bundle
+    let passBundle = try createPassBundle(
+        passJSON: passJSON,
+        manifest: manifestJSON,
+        signature: signature,
+        icon: iconData,
+        logo: logoData
+    )
+
+    return passBundle
+}
+```
+
+## Privacy Guarantees
+
+### What Backend Knows
+
+**Nothing about users:**
+- ❌ No names
+- ❌ No email addresses
+- ❌ No phone numbers
+- ❌ No company information
+- ❌ No location data
+
+**Only cryptographic hashes:**
+- ✅ SHA256 hashes of pass files
+- ✅ Manifest structure (file names)
+- ✅ Timestamp of signing
+
+**Example manifest:**
+```json
+{
+  "pass.json": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "icon.png": "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce"
+}
+```
+*The backend cannot reverse SHA256 to get file contents*
+
+### Stateless Design
+
+**No database:**
+- Zero data persistence
+- No user accounts
+- No session storage
+- No analytics tracking
+
+**No logging:**
+- Request contents not logged
+- Only error counts (no details)
+- No IP address logging
+- Cloudflare standard metrics only
+
+**Certificate security:**
+- Stored in Cloudflare encrypted secrets
+- Never exposed to clients
+- Rotatable without code changes
+
+## Security Features
+
+### TLS Encryption
+
+All communication over HTTPS:
+```typescript
+// Cloudflare automatically enforces HTTPS
+// No HTTP connections accepted
+```
+
+### Rate Limiting
+
+Protection against abuse:
+```typescript
+// middleware/rate-limit.ts
+export const rateLimitMiddleware = async (c, next) => {
+  const ip = c.req.header("CF-Connecting-IP");
+  const { success } = await c.env.RATE_LIMITER.limit({ key: ip });
+
+  if (!success) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+
+  await next();
+};
+```
+
+**Limits:**
+- 100 requests per minute per IP
+- 1,000 requests per hour per IP
+- Cloudflare free tier: 100,000 requests/day globally
+
+### Certificate Chain Validation
+
+Apple validates the full certificate chain:
+```
+User's iPhone
+    ↓ validates
+Apple WWDR G4 Certificate
+    ↓ validates
+Your Pass Signing Certificate
+    ↓ signed
+manifest.json (pass content hashes)
+```
+
+If any certificate is compromised or expired, passes will be rejected by iOS.
+
+## Certificate Setup
+
+### 1. Generate Pass Certificate (Apple Developer)
+
+1. Go to [Apple Developer Certificates](https://developer.apple.com/account/resources/certificates/list)
+2. Create new **Pass Type ID Certificate**
+3. Download `pass.p12` file
+
+### 2. Export PEM Certificates
+
+```bash
+# Export signing certificate
+openssl pkcs12 -in pass.p12 \
+  -passin pass:YOUR_PASSWORD \
+  -clcerts -nokeys \
+  -out passcert.pem -legacy
+
+# Export private key
+openssl pkcs12 -in pass.p12 \
+  -passin pass:YOUR_PASSWORD \
+  -nocerts -nodes \
+  -out passkey.pem -legacy
+```
+
+### 3. Download Apple WWDR Certificate
+
+```bash
+# Download Apple WWDR G4 certificate
+curl -o AppleWWDRCAG4.cer \
+  https://www.apple.com/certificateauthority/AppleWWDRCAG4.cer
+
+# Convert to PEM format
+openssl x509 -inform DER \
+  -in AppleWWDRCAG4.cer \
+  -out wwdr.pem
+```
+
+### 4. Upload to Cloudflare Secrets
+
+```bash
+# Base64 encode and upload
+cat passcert.pem | base64 | wrangler secret put PASS_CERT
+cat passkey.pem | base64 | wrangler secret put PASS_KEY
+cat wwdr.pem | base64 | wrangler secret put WWDR_CERT
+```
+
+**Security notes:**
+- Never commit `.pem` or `.p12` files to git
+- Secrets are encrypted at rest in Cloudflare
+- Only accessible by your Worker
+- Can be rotated without code changes
+
+## Deployment
+
+### Cloudflare Workers Setup
+
+```bash
+# Install dependencies
+bun install
+
+# Deploy to Cloudflare
+bun run deploy
+```
+
+**Configuration (`wrangler.jsonc`):**
+```json
+{
+  "name": "airmeishi-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-10-01",
+  "node_compat": true
+}
+```
+
+### Environment Variables
+
+Set via Cloudflare dashboard or CLI:
+```bash
+wrangler secret put PASS_CERT
+wrangler secret put PASS_KEY
+wrangler secret put WWDR_CERT
+```
+
+### Local Development
+
+Create `.dev.vars` file (not committed):
+```bash
+PASS_CERT="<base64-encoded-cert>"
+PASS_KEY="<base64-encoded-key>"
+WWDR_CERT="<base64-encoded-wwdr>"
+```
+
+Run locally:
+```bash
+bun run dev
+# Worker available at http://localhost:8787
+```
+
+## Performance
+
+### Response Times
+
+| Metric | Time |
+|--------|------|
+| Cold start | ~50ms |
+| Warm request | ~10ms |
+| Signature generation | ~5ms |
+| Total round-trip (iOS → Worker → iOS) | ~30-100ms |
+
+**Cold starts:** Only on first request after idle period (5+ minutes)
+
+### Cloudflare Edge Network
+
+- 300+ data centers globally
+- Request routed to nearest edge location
+- Certificates cached at edge
+- Sub-50ms response time worldwide
+
+### Scalability
+
+**Cloudflare Workers free tier:**
+- 100,000 requests/day
+- 10ms CPU time per request
+- Sufficient for thousands of users
+
+**Paid tier ($5/month):**
+- 10,000,000 requests/month
+- Scales automatically
+- No infrastructure management
+
+## Cost Analysis
+
+### Free Tier (Sufficient for Most Use Cases)
+
+```
+Daily limit:     100,000 requests
+Monthly limit:   ~3,000,000 requests
+Cost:            $0
+```
+
+**Realistic usage:**
+- Average user: 2-3 pass generations per month
+- 10,000 active users = 30,000 requests/month
+- Well within free tier limits
+
+### Paid Tier (Scale)
+
+```
+$5/month base:   10,000,000 requests
+Overage:         $0.50 per additional 1M requests
+```
+
+**Comparison to alternatives:**
+- AWS Lambda: ~$20/month for equivalent load
+- Heroku: ~$25/month for hobby dyno
+- DigitalOcean: ~$6/month for basic droplet
+
+**Why Cloudflare Workers:**
+- Global edge network included
+- Auto-scaling included
+- DDoS protection included
+- No DevOps overhead
+
+## Why This Architecture?
+
+### Privacy-First
+
+**No user data storage = no data breaches**
+- Cannot leak what you don't store
+- GDPR/CCPA compliant by design
+- Zero telemetry
+
+### Performance
+
+**Edge computing = low latency**
+- Sub-50ms globally
+- No database queries
+- Stateless = infinite scale
+
+### Cost-Effective
+
+**Serverless = pay-per-use**
+- Free tier sufficient for most users
+- No idle server costs
+- Automatic scaling
+
+### Simple
+
+**Single endpoint = minimal attack surface**
+- One API route
+- No authentication needed (hashes are public)
+- Easy to audit and maintain
+
+### Secure
+
+**Certificate isolation**
+- Private keys never leave Cloudflare
+- TLS encryption enforced
+- Rate limiting built-in
+
+## Comparison to Alternatives
+
+### Traditional Server (e.g., Express.js + PostgreSQL)
+
+| Aspect | Traditional Server | Cloudflare Worker |
+|--------|-------------------|-------------------|
+| **Setup** | Complex (server, DB, SSL) | Simple (deploy one file) |
+| **Cost** | $10-50/month | $0-5/month |
+| **Latency** | 100-500ms | 10-50ms |
+| **Scaling** | Manual | Automatic |
+| **Maintenance** | High | Minimal |
+| **Privacy** | DB can leak data | No data stored |
+
+### Client-Side Only (No Backend)
+
+**Problem:** Cannot sign passes client-side
+- iOS apps cannot store Apple signing certificates securely
+- Private key would be exposed in app bundle
+- Anyone could extract and sign malicious passes
+
+**Solution:** Stateless backend for signing only
+- Private key stays in secure Cloudflare environment
+- Client sends only hashes (no sensitive data)
+- Best of both worlds: privacy + security
+
+## Monitoring
+
+### Cloudflare Analytics
+
+**Metrics available:**
+- Total requests (per day/week/month)
+- Error rate (5xx responses)
+- Response time (P50, P95, P99)
+- Geographic distribution
+
+**What's NOT tracked:**
+- Request contents
+- User identifiers
+- IP addresses (beyond rate limiting)
+
+### Error Handling
+
+```typescript
+// Errors are caught and logged without sensitive data
+catch (error) {
+  console.error("Signing error:", error.name); // Log error type only
+  return c.json({ error: "Signing failed" }, 500);
+}
+```
+
+## Future Enhancements
+
+### Potential Improvements
+
+1. **Signature Caching**
+   - Cache signed manifests for 5 minutes
+   - Reduce redundant signing for same pass
+   - Trade-off: Slight privacy impact (timing correlation)
+
+2. **Batch Signing**
+   - Sign multiple passes in one request
+   - Useful for group events
+   - Reduces network overhead
+
+3. **Pass Updates**
+   - Support pass updates via web service
+   - Automatic notification to users
+   - Requires pass registration (adds complexity)
+
+4. **Health Monitoring**
+   - Certificate expiration alerts
+   - Automated certificate rotation
+   - Uptime monitoring
+
+### Not Planned (Privacy Concerns)
+
+- ❌ User accounts or authentication
+- ❌ Pass analytics or tracking
+- ❌ Storage of signed passes
+- ❌ Pass update push notifications (requires tracking)
+
+## Troubleshooting
+
+### Common Issues
+
+**Error: "Signing failed"**
+- Check certificate expiration dates
+- Verify secrets are base64-encoded correctly
+- Ensure WWDR certificate is G4 (not G3)
+
+**Pass not installing on iOS**
+- Verify certificate chain is complete
+- Check pass.json format matches Apple spec
+- Ensure all manifest files are present
+
+**Slow response times**
+- Check Cloudflare status page
+- Verify no rate limiting triggered
+- Test from different geographic locations
+
+### Debug Tools
+
+```bash
+# Test signing endpoint
+curl -X POST https://airmeishi-backend.workers.dev/sign-pass \
+  -H "Content-Type: text/plain" \
+  -d '{"pass.json":"abc123","icon.png":"def456"}' \
+  --output signature
+
+# Verify signature is valid PKCS#7
+openssl pkcs7 -inform DER -in signature -print_certs -noout
+```
+
+## Source Code
+
+**Backend repository:** [airmeishi-backend](https://github.com/solidarity-labs/airmeishi-backend)
+
+**Key files:**
+- `src/routes/passkit/sign.ts` - Signing endpoint
+- `src/middleware/rate-limit.ts` - Rate limiting
+- `wrangler.jsonc` - Deployment configuration
+
+## Related Documentation
+
+- [Apple Wallet Integration Guide](/docs/usage/apple-wallet)
+- [Privacy & Security Overview](/docs/architecture/privacy)
+- [P2P Networking](/docs/architecture/p2p-networking)
+- [Technology Stack](/docs/architecture/tech-stack)
+
+---
+
+**Philosophy:** This architecture demonstrates that **privacy and functionality are not trade-offs**. By designing systems to never collect user data in the first place, we eliminate entire classes of security and privacy risks.

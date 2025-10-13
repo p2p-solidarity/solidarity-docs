@@ -35,6 +35,15 @@ Understand how Solidarity enables offline sharing through direct device connecti
 - QR code fallback
 - Apple Wallet integration
 
+### [Pass Signing Service](/docs/architecture/pass-signing)
+Serverless credential issuance architecture for Apple Wallet integration.
+
+**Key Topics:**
+- Cloudflare Workers backend
+- Privacy-preserving design
+- PKCS#7 signature generation
+- Zero user data storage
+
 ### [Zero-Knowledge Proofs](/docs/architecture/zero-knowledge)
 Explore how Solidarity uses ZK proofs for anonymous group verification.
 
@@ -72,7 +81,7 @@ Built on proven protocols and Apple's native frameworks for reliability and secu
 | P2P Sharing | MultipeerConnectivity | Offline device-to-device |
 | QR Codes | Core Image | Universal compatibility |
 | ZK Proofs | Semaphore + Mopro | Anonymous verification |
-| Wallet | PassKit | System integration |
+| Wallet | PassKit + Cloudflare Workers | Serverless pass signing |
 
 ---
 

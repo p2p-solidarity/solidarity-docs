@@ -242,6 +242,125 @@ class PassKitService {
 - Apple Developer Pass Type ID
 - Pass certificate configured
 
+#### Pass Signing Architecture
+
+**Serverless Signing Service** - Privacy-preserving credential issuance
+
+Solidarity uses a **Cloudflare Workers** backend for Apple Wallet pass signing while maintaining zero user data storage.
+
+**Key Design:**
+```
+iOS App (Local)           Cloudflare Worker (Stateless)
+     │                            │
+     │  1. Generate manifest      │
+     │     (SHA256 hashes)        │
+     │                            │
+     │  2. POST /sign-pass        │
+     ├───────────────────────────>│
+     │     manifest.json          │
+     │                            │
+     │                            │  3. Sign with PKCS#7
+     │                            │     (Apple certificates)
+     │                            │
+     │  4. Return signature       │
+     │<───────────────────────────┤
+     │     (DER format)           │
+     │                            │
+     │  5. Bundle .pkpass         │
+     │     (locally)              │
+     │                            │
+```
+
+**Backend Implementation:**
+
+```typescript
+// Cloudflare Worker - airmeishi-backend
+import forge from "node-forge";
+
+// POST /sign-pass
+async function signPass(manifestJson: string, env: Env) {
+  // 1. Load certificates from encrypted secrets
+  const passCertPem = Buffer.from(env.PASS_CERT, "base64").toString("utf-8");
+  const passKeyPem = Buffer.from(env.PASS_KEY, "base64").toString("utf-8");
+  const wwdrCertPem = Buffer.from(env.WWDR_CERT, "base64").toString("utf-8");
+
+  // 2. Create PKCS#7 detached signature
+  const p7 = forge.pkcs7.createSignedData();
+  p7.content = forge.util.createBuffer(manifestJson, "utf8");
+
+  const signerCert = forge.pki.certificateFromPem(passCertPem);
+  const signerKey = forge.pki.privateKeyFromPem(passKeyPem);
+  const wwdrCert = forge.pki.certificateFromPem(wwdrCertPem);
+
+  p7.addCertificate(signerCert);
+  p7.addCertificate(wwdrCert);
+
+  p7.addSigner({
+    key: signerKey,
+    certificate: signerCert,
+    digestAlgorithm: forge.pki.oids.sha1, // PassKit requires SHA-1
+    authenticatedAttributes: [
+      { type: forge.pki.oids.contentType, value: forge.pki.oids.data },
+      { type: forge.pki.oids.messageDigest },
+      { type: forge.pki.oids.signingTime, value: new Date() }
+    ]
+  });
+
+  // 3. Sign and return DER-encoded signature
+  p7.sign({ detached: true });
+  const signature = forge.asn1.toDer(p7.toAsn1()).getBytes();
+
+  return new Response(signature, {
+    headers: { "Content-Type": "application/octet-stream" }
+  });
+}
+```
+
+**Privacy Guarantees:**
+
+1. **Stateless Design**
+   - No user data stored
+   - No logging of pass contents
+   - Certificates stored in encrypted secrets only
+
+2. **Minimal Payload**
+   - Only SHA256 hashes transmitted
+   - No PII in manifest (just file hashes)
+   - Signature returned immediately
+
+3. **Security**
+   - TLS encryption in transit
+   - Apple WWDR certificate chain verification
+   - Rate limiting (100 requests/IP/minute)
+
+**Certificate Setup:**
+
+```bash
+# 1. Export certificates from Apple Developer
+openssl pkcs12 -in pass.p12 -clcerts -nokeys -out passcert.pem
+openssl pkcs12 -in pass.p12 -nocerts -nodes -out passkey.pem
+
+# 2. Download Apple WWDR G4 certificate
+curl -o AppleWWDRCAG4.cer \
+  https://www.apple.com/certificateauthority/AppleWWDRCAG4.cer
+openssl x509 -inform DER -in AppleWWDRCAG4.cer -out wwdr.pem
+
+# 3. Upload as Cloudflare secrets (base64 encoded)
+cat passcert.pem | base64 | wrangler secret put PASS_CERT
+cat passkey.pem | base64 | wrangler secret put PASS_KEY
+cat wwdr.pem | base64 | wrangler secret put WWDR_CERT
+```
+
+**Why This Architecture:**
+
+- **Privacy**: No backend database = no user data storage
+- **Performance**: Cloudflare edge network (&lt;50ms globally)
+- **Cost**: Free tier supports 100K requests/day
+- **Security**: Certificates never leave Cloudflare's encrypted storage
+- **Simplicity**: Single stateless endpoint
+
+See [airmeishi-backend repository](https://github.com/your-org/airmeishi-backend) for full implementation.
+
 ### 4. Share Link
 
 **Long-distance sharing** - create shareable deep links.
