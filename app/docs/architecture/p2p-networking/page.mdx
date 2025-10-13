@@ -78,8 +78,8 @@ class P2PService: NSObject, MCSessionDelegate {
    - Begins browsing for nearby peers
 
 2. **Automatic discovery** (usually 1 second)
-   - Bluetooth LE broadcasts device presence
-   - WiFi Direct enables high-speed transfer
+   - MultipeerConnectivity handles discovery
+   - Uses Bonjour service over local network
 
 3. **Peer list appears**
    - Shows nearby Solidarity users
@@ -93,14 +93,16 @@ class P2PService: NSObject, MCSessionDelegate {
 #### Technical Details
 
 **Discovery:**
-- Bluetooth LE: 30 feet range
-- WiFi Direct: 100 feet range
+- MultipeerConnectivity framework
+- Bonjour service: `_airmeishi-share._tcp`
+- Works over infrastructure WiFi and peer-to-peer WiFi
 - No internet required
 
 **Connection:**
-- Automatic pairing
-- TLS encryption
+- Automatic session establishment
+- TLS encryption (`.required`)
 - Perfect forward secrecy
+- User consent for first connection
 
 **Transfer:**
 - ~1KB per card
@@ -422,8 +424,8 @@ class DeepLinkService {
 
 | Method | Time | Range |
 |--------|------|-------|
-| Bluetooth LE | 1s | ~30 feet |
-| WiFi Direct | 1s | ~100 feet |
+| MultipeerConnectivity (Infrastructure WiFi) | &lt;1s | Same network |
+| MultipeerConnectivity (Peer-to-peer WiFi) | 1-2s | ~30 feet |
 | QR Code | Instant | Line of sight |
 
 ### Transfer Speed
@@ -533,10 +535,10 @@ func handleConnectionError(_ error: Error) {
 
 ### Device Support
 
-- **iPhone**: Full P2P support
-- **iPad**: Full P2P support
-- **Mac**: Limited (MultipeerConnectivity on Catalyst)
-- **Apple Watch**: View-only (no P2P)
+- **iPhone**: Full MultipeerConnectivity support
+- **iPad**: Full MultipeerConnectivity support
+- **Mac**: Limited (Catalyst apps with restrictions)
+- **Apple Watch**: Not supported
 
 ---
 
