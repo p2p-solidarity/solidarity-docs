@@ -1,88 +1,101 @@
 ---
 title: Architecture
-description: Technical architecture and implementation details
+description: Solidarity technical architecture overview
 ---
 
 # Architecture
 
-Deep dive into Solidarity's technical architecture, privacy features, and implementation details.
+Solidarity's architecture is built on three core principles: **local-first**, **privacy-first**, and **open standards**.
 
-## Overview
+## Architecture Layers
 
-Solidarity is built with three core principles:
+```mermaid
+flowchart TD
+    A["App Layer\niOS 17+ · Swift / SwiftUI · @Observable MVVM"]
+    B["Exchange Protocol Layer\nOID4VP · OID4VCI · SIOPv2 (v2)"]
+    C["Verifier Web Layer\nSelf-hosted Static Web + WASM ZK Verifier"]
+    D["Data Format Layer\nW3C VC + ZKP (passport) · SD-JWT VC (general)"]
+    E["ZK Proof Layer\nOpenPassport Circuits (Noir) + mopro (prover)"]
+    F["Identifier Layer\ndid:key · did:jwk (pairwise per-RP)"]
+    G["Key Management Layer\niOS Keychain · iCloud Keychain sync · Shamir SSS"]
 
-1. **Privacy First** - Your data never leaves your device
-2. **Offline First** - Works without internet connection
-3. **User Control** - You decide what to share and with whom
-
-## Architecture Sections
-
-### [Privacy & Security](/docs/architecture/privacy)
-Learn how Solidarity protects your data with encryption, local storage, and granular privacy controls.
-
-**Key Topics:**
-- AES-GCM 256-bit encryption
-- iOS Keychain integration
-- Three-level privacy system
-- Zero telemetry design
-
-### [Peer-to-Peer Networking](/docs/architecture/p2p-networking)
-Understand how Solidarity enables offline sharing through direct device connections.
-
-**Key Topics:**
-- MultipeerConnectivity framework
-- Proximity-based device discovery
-- QR code fallback
-- Apple Wallet integration
-
-### [Pass Signing Service](/docs/architecture/pass-signing)
-Serverless credential issuance architecture for Apple Wallet integration.
-
-**Key Topics:**
-- Cloudflare Workers backend
-- Privacy-preserving design
-- PKCS#7 signature generation
-- Zero user data storage
-
-### [Zero-Knowledge Proofs](/docs/architecture/zero-knowledge)
-Explore how Solidarity uses ZK proofs for anonymous group verification.
-
-**Key Topics:**
-- Semaphore protocol
-- Mopro implementation
-- Anonymous credentials
-- Group membership verification
-
-### [Technology Stack](/docs/architecture/tech-stack)
-Complete technical stack, frameworks, and implementation details.
-
-**Key Topics:**
-- SwiftUI + MVVM architecture
-- Native iOS frameworks
-- Data flow diagrams
-- Performance considerations
-
-## Design Philosophy
-
-### Local-First
-All data stored and processed on your device. No servers, no cloud, no tracking.
-
-### User Control
-Every share requires explicit permission. You choose the privacy level each time.
-
-### Standards-Based
-Built on proven protocols and Apple's native frameworks for reliability and security.
-
-## Quick Reference
-
-| Feature | Technology | Purpose |
-|---------|-----------|---------|
-| Storage | AES-GCM + Keychain | Encrypted local storage |
-| P2P Sharing | MultipeerConnectivity | Offline device-to-device |
-| QR Codes | Core Image | Universal compatibility |
-| ZK Proofs | Semaphore + Mopro | Anonymous verification |
-| Wallet | PassKit + Cloudflare Workers | Serverless pass signing |
+    A --> B --> D --> E --> F --> G
+    B --> C
+```
 
 ---
 
-Choose a section above to dive deeper into Solidarity's architecture.
+## Sections
+
+### [Technology Stack](/architecture/tech-stack)
+
+Full tech stack, SDK selection, data persistence strategy.
+
+**Highlights**: iOS 17.0+, SwiftData, MultipeerConnectivity, PassKit
+
+### [Zero-Knowledge Proofs](/architecture/zero-knowledge)
+
+Passport ZKP pipeline (MRZ → NFC → mopro → VC) and verification flow.
+
+**Highlights**: OpenPassport Noir circuit, mopro prover, SD-JWT fallback, WASM Web Verifier
+
+### [P2P Networking](/architecture/p2p-networking)
+
+Face-to-face exchange technical implementation: MultipeerConnectivity, Social Graph Intersection, encrypted payload.
+
+**Highlights**: MCNearbyServiceAdvertiser/Browser, hash-based common friends, signed exchange payload
+
+### [Key Management & Privacy](/architecture/privacy)
+
+DID key lifecycle, iCloud Keychain sync, Social Recovery (Shamir SSS).
+
+**Highlights**: EC P-256 keys, pairwise per-RP keys, Shamir + ECIES guardian encryption
+
+### [Apple Wallet (Pass Signing)](/architecture/pass-signing)
+
+Apple Wallet `.pkpass` integration: local assembly + Cloudflare Worker signing.
+
+**Highlights**: PassKit, PKCS#7 detached signature, stateless backend
+
+---
+
+## In-Depth Analysis
+
+### [Verification Model](/architecture/verification-model)
+
+What data is actually verified, at which trust level, and by which mechanism — signatures, CSCA chain, ZK proof, expiry, nonce.
+
+**Highlights**: CSCA passive auth, VP token checks, P2P payload verification, what is NOT verified
+
+### [Data Exchange Model](/architecture/data-exchange)
+
+What Me/Share sends on each path, where OID4VP and OID4VCI fit, and the exact difference between Proximity and QR code contacts.
+
+**Highlights**: ProximityPayload fields, VP token data, OIDC flow status, ContactEntity comparison
+
+### [Wallet Architecture](/architecture/wallet-positioning)
+
+Precise boundaries of Solidarity as a VC Wallet, VP Wallet, and Apple Wallet integration.
+
+**Highlights**: what is complete vs stub, accurate product positioning
+
+### [Advanced Capabilities](/architecture/advanced-capabilities)
+
+Group-based features enabled by Semaphore, and the architecture for Gov+NFC device-binding.
+
+**Highlights**: Semaphore group use cases, pairwise DID binding, EAC-3 hardware binding limitations
+
+---
+
+## Quick Reference
+
+| Feature | Technology | Code Location |
+|---------|-----------|---------------|
+| Proximity discovery | MultipeerConnectivity | [`Services/Sharing/ProximityManager.swift`](https://github.com/p2p-solidarity/solidarity/blob/main/solidarity/Services/Sharing/ProximityManager.swift) |
+| QR generation | CoreImage + JWT | [`Services/Card/QRCodeGenerationService.swift`](https://github.com/p2p-solidarity/solidarity/blob/main/solidarity/Services/Card/QRCodeGenerationService.swift) |
+| Passport NFC reading | NFCPassportReader | [`Services/Identity/NFCPassportReaderService.swift`](https://github.com/p2p-solidarity/solidarity/blob/main/solidarity/Services/Identity/NFCPassportReaderService.swift) |
+| ZK proof generation | mopro + Noir | [`Services/ZK/MoproProofService.swift`](https://github.com/p2p-solidarity/solidarity/blob/main/solidarity/Services/ZK/MoproProofService.swift) |
+| VC/VP wrapping | OID4VP | [`Services/Identity/OID4VPPresentationService.swift`](https://github.com/p2p-solidarity/solidarity/blob/main/solidarity/Services/Identity/OID4VPPresentationService.swift) |
+| Apple Wallet | PassKit | [`Services/Sharing/PassKitManager.swift`](https://github.com/p2p-solidarity/solidarity/blob/main/solidarity/Services/Sharing/PassKitManager.swift) |
+| Key management | iOS Keychain | [`Services/Identity/`](https://github.com/p2p-solidarity/solidarity/tree/main/solidarity/Services/Identity) |
+| Local storage | SwiftData | [`Models/`](https://github.com/p2p-solidarity/solidarity/tree/main/solidarity/Models) |

@@ -1,281 +1,182 @@
 ---
-title: Privacy & Security
-description: How Solidarity protects your data
+title: Key Management & Privacy
+description: DID key lifecycle, iCloud Keychain sync, pairwise DID, and Social Recovery (Shamir SSS)
 ---
 
-# Privacy & Security
+# Key Management & Privacy
 
-Solidarity's privacy-first architecture ensures your data stays under your control.
-
-## Local-Only Storage
-
-### Your Data Never Leaves Your Device
-
-**No Cloud Servers**
-- All business cards stored locally on your iPhone
-- No external databases or cloud storage
-- No account creation required
-- Complete data ownership
-
-**Military-Grade Encryption**
-- AES-GCM 256-bit encryption for all stored data
-- Encryption keys stored in iOS Keychain (hardware-backed)
-- Even with device access, your data remains protected
-
-### iOS Keychain Integration
-
-```swift
-class EncryptionService {
-    func encrypt(_ data: Data) throws -> Data {
-        let key = getOrCreateEncryptionKey() // Stored in Keychain
-        return try AES.GCM.seal(data, using: key).combined
-    }
-
-    func decrypt(_ data: Data) throws -> Data {
-        let key = getEncryptionKey()
-        let sealedBox = try AES.GCM.SealedBox(combined: data)
-        return try AES.GCM.open(sealedBox, using: key)
-    }
-}
-```
-
-**Key Management:**
-- Encryption keys stored in **Keychain** (hardware-backed when available)
-- Never exported or transmitted
-- Unique per app installation
-
-## Three-Level Privacy System
-
-### Technical Implementation
-
-Each privacy level creates a filtered version of your card with different encryption keys.
-
-```swift
-enum PrivacyLevel: String, Codable {
-    case public      // Basic professional info
-    case professional // Full work contact details
-    case personal    // Complete information
-}
-
-struct BusinessCard: Codable {
-    let id: UUID
-    var name: String              // Public
-    var company: String?          // Public
-    var workEmail: String?        // Professional
-    var workPhone: String?        // Professional
-    var personalEmail: String?    // Personal
-    var personalPhone: String?    // Personal
-    var privacyLevel: PrivacyLevel
-}
-```
-
-### Privacy Level Breakdown
-
-#### 🌍 Public Level
-**Visible to everyone**
-- Name
-- Company
-- Job title
-- Public social media
-
-**Use cases:**
-- Large networking events
-- Conference badge QR codes
-- Public-facing materials
-
-#### 💼 Professional Level
-**Shared with verified business contacts**
-- All public information
-- Work email
-- Direct phone line
-- LinkedIn profile
-- Professional social media
-
-**Use cases:**
-- Business meetings
-- Client interactions
-- Professional networking
-
-#### 🔒 Personal Level
-**Only for trusted connections**
-- All professional information
-- Personal email
-- Mobile number
-- Personal social media
-- Additional notes
-
-**Use cases:**
-- Close colleagues
-- Personal connections
-- Long-term relationships
-
-### Selective Disclosure
-
-When sharing, you choose which level to disclose. Recipients only see information at or below the selected level.
-
-```swift
-func shareCard(card: BusinessCard, level: PrivacyLevel) -> BusinessCard {
-    var filteredCard = card
-
-    switch level {
-    case .public:
-        filteredCard.workEmail = nil
-        filteredCard.workPhone = nil
-        filteredCard.personalEmail = nil
-        filteredCard.personalPhone = nil
-    case .professional:
-        filteredCard.personalEmail = nil
-        filteredCard.personalPhone = nil
-    case .personal:
-        // Share everything
-        break
-    }
-
-    return filteredCard
-}
-```
-
-## Zero Tracking
-
-### No Telemetry or Analytics
-
-**What we DON'T collect:**
-- No usage analytics
-- No crash reports (unless you explicitly send them)
-- No behavioral tracking
-- No advertising IDs
-
-**What we DON'T use:**
-- No Firebase
-- No Mixpanel
-- No ad networks
-- No tracking SDKs
-- No device fingerprinting
-
-### No Servers, No Tracking
-
-Since Solidarity has no servers, we literally cannot track your activity:
-- Can't see who you share with
-- Can't see what information you share
-- Can't see when or where you use the app
-- Can't build a profile of your network
-
-## Security Architecture
-
-### Multi-Layer Protection
-
-#### Device Level
-- iOS Keychain for sensitive data storage
-- App sandboxing prevents other apps from accessing data
-- Biometric authentication (Face ID/Touch ID) support
-
-#### Network Level
-- All peer-to-peer connections encrypted with TLS
-- Perfect forward secrecy (each session uses unique keys)
-- No data transmitted to external servers
-
-#### Application Level
-- Granular privacy controls per sharing session
-- Automatic data expiration options (for shared links)
-- Audit trail of what was shared when
-
-### Threat Model
-
-**Protected Against:**
-- ✅ Server breaches (no servers exist)
-- ✅ Network eavesdropping (encrypted P2P)
-- ✅ Identity tracking (zero-knowledge proofs)
-- ✅ Unauthorized device access (local encryption)
-- ✅ Data mining (no analytics)
-
-**Not Protected Against:**
-- ⚠️ Physical device access (requires device security)
-- ⚠️ Malicious recipients (user must trust who they share with)
-- ⚠️ Social engineering (user discretion required)
-
-### Privacy Guarantees
-
-1. **No Data Collection**: Zero telemetry, no analytics
-2. **Local Only**: Nothing leaves device without explicit user action
-3. **Encrypted at Rest**: All data protected with AES-GCM
-4. **Anonymous Proofs**: ZK proofs reveal no identity information
-5. **Selective Sharing**: User controls what information to disclose
-
-## Data Retention
-
-### Local Storage Only
-
-**You control retention:**
-- Delete cards anytime
-- No cloud backup (unless you choose iCloud)
-- No recovery after deletion
-
-**Received cards:**
-- Stored locally only
-- You can delete anytime
-- Sender cannot revoke (once shared, it's yours)
-
-### What Happens When You Share
-
-1. You choose privacy level
-2. Filtered card data created
-3. Data encrypted for transmission
-4. Recipient receives and stores locally
-5. **No record kept** of the transaction
-
-## Biometric Authentication
-
-Optional Face ID/Touch ID protection:
-
-```swift
-import LocalAuthentication
-
-class AuthenticationService {
-    func authenticateUser() async throws -> Bool {
-        let context = LAContext()
-        let reason = "Unlock your business cards"
-
-        return try await context.evaluatePolicy(
-            .deviceOwnerAuthenticationWithBiometrics,
-            localizedReason: reason
-        )
-    }
-}
-```
-
-**Features:**
-- Optional (disabled by default)
-- Device hardware-backed
-- No biometric data stored in app
-
-## Audit Trail
-
-Local-only logging of sharing activity:
-
-```swift
-struct ShareLog: Codable {
-    let timestamp: Date
-    let recipientName: String?
-    let privacyLevel: PrivacyLevel
-    let method: ShareMethod // P2P, QR, Link
-}
-```
-
-**Audit features:**
-- View who you've shared with
-- See what privacy level was used
-- Review sharing history
-- **Stored locally only** - never transmitted
-
-## Future Privacy Features
-
-Planned for upcoming versions:
-
-- **Advanced Selective Disclosure** (v1.2): Field-level ZK proofs
-- **Revocable Credentials** (v1.3): Expire shared information
-- **Privacy Zones** (v2.0): Location-based privacy rules
-- **Self-Destructing Messages** (v2.0): Time-limited shares
+**Core principle**: Users never touch private keys, seed phrases, or any cryptographic details. All key management relies entirely on native iOS capabilities (Keychain + iCloud Keychain). "Face ID is your identity."
 
 ---
 
-Next: Learn about [Peer-to-Peer Networking](/docs/architecture/p2p-networking)
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph Apple["Apple Account (single binding, synced across devices)"]
+        subgraph iCK["iCloud Keychain (Apple-managed E2EE)"]
+            subgraph DevA["Device A (iPhone)"]
+                KA["Keychain items:\n· DID Master Key\n· RP-A Key\n· RP-B Key"]
+                FA["Face ID / Touch ID\nunlocks access"]
+            end
+            subgraph DevB["Device B (iPad)"]
+                KB["Keychain items:\n· DID Master Key\n· RP-A Key\n· RP-B Key"]
+                FB["Face ID / Touch ID\nunlocks access"]
+            end
+        end
+
+        iCDrive["iCloud Drive (non-Keychain)\nRecovery Bundle (encrypted)"]
+    end
+
+    DevA <-->|E2EE auto-sync| DevB
+```
+
+---
+
+## Key Lifecycle
+
+| Stage | Behavior | Technology |
+|-------|----------|------------|
+| **Creation** | EC P-256 key pair generated in Keychain on first launch | `SecKeyCreateRandomKey` with `.biometryCurrentSet` |
+| **Protection** | Any private key access requires Face ID / Touch ID | `kSecAttrAccessibleWhenUnlocked` (allows iCloud sync) |
+| **Sync** | iCloud Keychain auto-syncs E2EE to all devices on the same Apple Account | Native Apple mechanism, no custom sync needed |
+| **Use** | Each DID operation requires Face ID unlock | Face ID → Keychain access → `SecKeyCreateSignature` |
+| **Pairwise** | A separate key pair is generated in Keychain for each RP | One independent `SecKey` per RP |
+| **Backup** | Apple manages E2EE backup for iCloud Keychain | No user action required |
+| **Recovery (normal)** | Sign in to same Apple Account → Keychain auto-syncs | Handles device migration naturally |
+| **Recovery (disaster)** | Social Recovery → Shamir → reconstruct Master Key | See Social Recovery below |
+
+---
+
+## Pairwise DID (Per-RP Key Pair)
+
+Each Verifier (RP) uses a separate key pair, making it impossible to correlate the user's identity across RPs:
+
+```
+Keychain
+  ├─ "solidarity.master"         → Master Key Pair → did:key
+  │   Used for: VC self-issuance, face-to-face exchange
+  │
+  ├─ "solidarity.rp.bar-abc.com" → RP-A Key Pair → did:key
+  │   Used for: presenting proof to Bar ABC
+  │
+  ├─ "solidarity.rp.example.com" → RP-B Key Pair → did:key
+  │   Used for: login to example.com
+  │
+  └─ ... one independent key pair per RP
+```
+
+**Why independent generation instead of derivation**: iOS Secure Enclave does not allow exporting raw key material, so HKDF derivation is not possible. Generating an independent key pair per RP is simpler, more secure, and all key pairs are automatically synced via iCloud Keychain.
+
+---
+
+## DID Format
+
+```
+did:key:z6Mk...  (EC P-256 public key → multicodec → multibase)
+```
+
+The App UI never surfaces the `did:key:z6Mk...` string directly. It is referred to as "your digital identity." DID details are accessible under Settings → Advanced.
+
+**Code**: [`solidarity/Services/Identity/DIDKeyService.swift`](https://github.com/p2p-solidarity/solidarity/blob/main/solidarity/Services/Identity/DIDKeyService.swift)
+
+---
+
+## Social Recovery (Shamir Secret Sharing)
+
+### Concept
+
+Shamir's Secret Sharing splits the DID Master Key recovery secret into N shares, encrypts each share for a guardian, and stores them in a Recovery Bundle. In a disaster scenario, collecting a threshold number of guardian confirmations is sufficient to reconstruct the key.
+
+### Setup Flow [SR-1]
+
+```mermaid
+flowchart TD
+    A["verified contacts ≥ 5\nApp nudges user to set up Social Recovery"] --> B["Select 5 guardians\n(3–7 guardians, threshold = ⌈N/2⌉+1)"]
+    B --> C["Face ID confirmation"]
+    C --> D["Generate Recovery Secret\n(256-bit random)"]
+    D --> E["Shamir SSS: split into N shares"]
+    E --> F["Encrypt each share\nwith guardian's DID public key\n(ECIES)"]
+    F --> G["AES-GCM encrypt Master Key\n(using Recovery Secret)"]
+    G --> H["Package Recovery Bundle\n→ upload to iCloud Drive"]
+```
+
+### Recovery Flow [SR-2]
+
+```mermaid
+flowchart TD
+    A["Install App on new device"] --> B["Load Recovery Bundle\n(iCloud Drive or file import)"]
+    B --> C["Display guardian list"]
+    C --> D["User contacts guardians out-of-band\n(call / message / in-person)"]
+    D --> E["Guardian in their App:\n[SR-3] Face ID decrypts share\n→ transmit to user via Proximity or QR"]
+    E --> F{"Threshold shares collected?"}
+    F -- Yes --> G["Reconstruct Recovery Secret\n→ decrypt Master Key"]
+    G --> H["Store in new device Keychain"]
+    H --> I["Prompt to re-scan passport\nto rebuild ZK credentials"]
+    F -- No --> D
+```
+
+### Guardian Confirmation Screen [SR-3]
+
+```
+┌─────────────────────────────────────┐
+│ 🔒 Social Recovery Request          │
+│                                     │
+│ Ming is asking you to help          │
+│ recover his identity.               │
+│                                     │
+│ You exchanged with Ming on          │
+│ 2025-03-15 in person.               │
+│                                     │
+│ ⚠️ Only confirm if you are sure     │
+│    this is the real person.         │
+│                                     │
+│ [Decline]   [Confirm with Face ID]  │
+└─────────────────────────────────────┘
+```
+
+### Recovery Scope
+
+| Data | Recoverable? | Mechanism |
+|------|-------------|-----------|
+| DID Master Key | ✅ | Shamir recovery |
+| Per-RP Keys | ❌ Must regenerate | Use recovered master key to re-register with each RP |
+| Passport VC | ❌ Must re-scan | The passport itself is the source of truth |
+| Contacts (verified) | ⚠️ Partial | Recovery Bundle can optionally include encrypted contact metadata |
+
+**Code**: [`solidarity/Services/Recovery/SocialRecoveryService.swift`](https://github.com/p2p-solidarity/solidarity/blob/main/solidarity/Services/Recovery/SocialRecoveryService.swift)
+
+---
+
+## Security Analysis
+
+| Attack Scenario | Protection |
+|----------------|------------|
+| Guardian collusion | Threshold design (5 guardians, 3 required) + guardians are unaware of each other's identity |
+| Recovery Bundle leak | Each share is encrypted with the guardian's public key — useless without the private key |
+| Guardian device stolen | Each share requires Face ID to access |
+| Guardian unreachable | Threshold allows partial guardian unavailability; guardian list can be updated periodically |
+
+---
+
+## Threat Model
+
+| Threat | Protection |
+|--------|-----------|
+| Server breach | No server stores user data |
+| Network eavesdropping | MCSession TLS encryption; VP token only in URL fragment |
+| Cross-RP tracking | Pairwise DID — each RP sees a different DID |
+| Device loss | Keychain encrypted, Face ID required; Social Recovery can reconstruct |
+| Contact list inference | Exchanged hashes cannot be reverse-engineered to reveal contact list |
+
+---
+
+## Data Stays on Device
+
+| Operation | Data Flow |
+|-----------|-----------|
+| Passport ZKP generation | Entirely on-device (mopro on-device prover) — no data leaves |
+| Face-to-face exchange | P2P direct connection (MCSession) — no server involved |
+| Smart QR verification | Proof is in URL fragment — server never sees it |
+| Apple Wallet signing | Only SHA256 hashes (no PII) sent to Cloudflare Worker |
+| iCloud Keychain sync | Apple E2EE — Apple itself cannot read key contents |
