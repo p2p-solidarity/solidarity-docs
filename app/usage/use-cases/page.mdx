@@ -1,82 +1,265 @@
 ---
-title: Use Cases
-description: Common scenarios for using Solidarity
+title: Present ZKP Proof
+description: Journey 3 — Present passport-derived zero-knowledge proofs to verifiers
 ---
 
-# Use Cases
+# Present ZKP Proof
 
-Learn how to use Solidarity effectively in different scenarios.
+**Journey 3: Present Proof to Verifier**
 
-## 1. Networking Events
+Present passport-derived zero-knowledge proofs (age ≥ 18, humanhood) to verifiers. Supports two paths:
 
-**Scenario:** You're at a conference and want to quickly exchange contact information.
+- **Path 1 — App-to-App**: verifier has Solidarity → scan QR, verify locally, < 1s, no network
+- **Path 2 — Web Verifier**: verifier has no app → scan QR → opens self-hosted webpage, browser-side WASM verification
 
-**How to use:**
-1. Open Solidarity and select your card
-2. Choose "Professional" privacy level
-3. Generate QR code or use AirDrop-style sharing
-4. Let others scan your code or accept their connection
+---
 
-**Benefits:**
-- No need to carry physical cards
-- Instant, contactless sharing
-- Control what information you share
-- Automatic contact organization
+## Parallel Timeline
 
-## 2. Business Meetings
+```mermaid
+sequenceDiagram
+    participant Prover as Prover
+    participant QR as Smart QR Code
+    participant Verifier as Verifier
 
-**Scenario:** Meeting new clients or partners in a professional setting.
+    Prover->>Prover: Me Tab → [Present →] → Face ID
+    Prover->>QR: [PR-1b] Display Smart QR (45s countdown)
 
-**How to use:**
-1. Create a "Professional" version of your card
-2. Use peer-to-peer sharing for direct exchange
-3. Verify group membership if applicable (e.g., same company)
-4. Add to Apple Wallet for easy access
+    alt Verifier has Solidarity App
+        Verifier->>QR: Scan with Solidarity
+        QR->>Verifier: Universal Link intercept → local verify
+        Verifier->>Verifier: [VF-1] Verification Success ✅
+    else Verifier has no App
+        Verifier->>QR: Scan with default camera
+        QR->>Verifier: Opens browser verify.solidarity.app
+        Verifier->>Verifier: [VF-W] Browser WASM verification ✅
+    end
+```
 
-**Benefits:**
-- Professional appearance
-- Verified identity through zero-knowledge proofs
-- Seamless integration with existing workflows
+---
 
-## 3. Casual Social Connections
+## Prover Side
 
-**Scenario:** Meeting someone at a social event or through mutual friends.
+### Entry Point A: Self-initiated (Me Tab)
 
-**How to use:**
-1. Switch to "Personal" privacy level
-2. Share only the information you're comfortable with
-3. Use QR code for quick sharing
-4. Update privacy settings later if needed
+Me Tab → tap **[Present →]** on a proof → Face ID → [PR-1b]
 
-**Benefits:**
-- Control over personal information
-- Easy to update or revoke access
-- No spam or unwanted contact
+### Entry Point B: Passive (scan Verifier's QR)
 
-## 4. Group Verification
+Share Tab → [📷 Scan] → scan `openid4vp://` QR → [SC-2] Router → [PR-1]
 
-**Scenario:** Proving membership in an organization without revealing identity.
+---
 
-**How to use:**
-1. Join verified groups (company, organization, etc.)
-2. Generate zero-knowledge proof of membership
-3. Share proof without revealing personal details
-4. Others can verify your membership anonymously
+### [PR-1] Proof Request Review (triggered from Verifier QR)
 
-**Benefits:**
-- Privacy-preserving verification
-- No central authority needed
-- Cryptographically secure
+```
+┌─────────────────────────────────┐
+│  Bar ABC requests confirmation: │
+│                                 │
+│  ✅ You are 18+                  │
+│                                 │
+│  Not shared:                    │
+│  ✕ Name                         │
+│  ✕ Date of birth                │
+│  ✕ Passport number              │
+│                                 │
+│  Source: Passport · 🟢 Gov-level │
+│                                 │
+│  [Decline]  [Present with Face ID]│
+└─────────────────────────────────┘
+```
 
-## Best Practices
+Technology: parse OID4VP `presentation_definition`, search local credential store for matching VCs.
 
-### Managing Connections
-- Review received cards regularly
-- Organize by event or context
-- Follow up with important connections
+---
 
-### Privacy Tips
-- Start with minimal information sharing
-- Increase privacy level as trust builds
-- Regularly audit your shared information
-- Use group verification for sensitive contexts
+### [PR-1b] Self-Initiated QR Display
+
+```
+┌──────────────────────────────────────────┐
+│                                          │
+│  🟢 Age ≥ 18                             │
+│                                          │
+│       ┌──────────────────────┐           │
+│       │                      │           │
+│       │    [Smart QR Code]   │           │
+│       │                      │           │
+│       └──────────────────────┘           │
+│                                          │
+│  Not revealed: name, DOB, passport no.   │
+│                                          │
+│  ⏱ [Circular progress] 45s remaining    │
+│                                          │
+│  [Close]                                 │
+└──────────────────────────────────────────┘
+```
+
+**Countdown expires** → auto re-sign and refresh QR + toast "QR Code refreshed"
+
+**Smart QR design (one QR, two paths, zero decision)**:
+
+```
+QR content = https://verify.solidarity.app/p/{proof_id}#{signed_vp_token}
+```
+
+| Verifier situation | Behavior |
+|-------------------|----------|
+| Has Solidarity App | App intercepts as Universal Link, extracts VP token from fragment → local verify |
+| No App (default camera) | Opens browser, extracts proof from URL fragment → WASM verify |
+
+**Privacy**: proof is in the URL fragment (`#`), server never sees it. Prover doesn't need to know if verifier has the app.
+
+**Code**:
+- `solidarity/Views/ScanViews/ProofPresentationFlowSheet.swift`
+- `solidarity/Services/Identity/OID4VPPresentationService.swift`
+
+---
+
+### [PR-2] Proof Signing & Submission
+
+```
+Generating and submitting proof... (1-3s)
+```
+
+Technology:
+1. Face ID unlocks Keychain
+2. Use pairwise DID key for this verifier's domain (creates new per-RP key pair if needed)
+3. Sign `vp_token` with pairwise DID key (ECDSA P-256)
+4. Submit to verifier via OID4VP `redirect_uri`
+
+---
+
+### [PR-3] Proof Presented ✅
+
+```
+[Green checkmark animation]
+Proof submitted ✅
+The verifier can confirm you're 18+,
+but sees none of your other information.
+```
+
+Auto-closes after 3 seconds.
+
+---
+
+## Verifier Side (In-App)
+
+### [VF-1] Verification Success ✅
+
+```
+┌──────────────────────────────────────────┐
+│                                          │
+│       [Green shield ✅ zoom-in]          │
+│                                          │
+│       This person is an adult            │
+│       Age ≥ 18                           │
+│                                          │
+│  ── Verification Details ──────────      │
+│  Source: Passport · 🟢 ZKP Verified      │
+│  Signed: 2025-03-15 14:30               │
+│  ⚠️ This proof doesn't include name      │
+│                                          │
+│  [Done]                                  │
+└──────────────────────────────────────────┘
+```
+
+**Plain-language headline** (not just technical fields):
+
+| Proof Type | Headline |
+|-----------|---------|
+| `age_over_18` | This person is an adult (Age ≥ 18) |
+| `is_human` | This person is a real human (Passport verified) |
+| `verified_contact_count` | This person has N face-to-face verified contacts |
+
+**Verification speed**: < 1s — skip loading screen, animate directly to result.
+
+---
+
+### [VF-1c] Verification Failed ❌
+
+```
+┌──────────────────────────────────────────┐
+│   [Red shield ❌ + Haptic .error]        │
+│                                          │
+│   Verification Failed                    │
+│                                          │
+│   IF expired / replay attack:            │
+│     "Expired. Ask them to present again" │
+│                                          │
+│   IF other (invalid sig / bad format):  │
+│     "This proof cannot be verified"      │
+│                                          │
+│   [Scan Again]    [Close]                │
+└──────────────────────────────────────────┘
+```
+
+**Technical verification (in-app)**:
+1. Parse VP token (compact JWT)
+2. Verify ZK proof (mopro verifier)
+3. Check nonce + expiry (replay prevention)
+4. Extract public signals
+
+**Code**:
+- `solidarity/Services/Identity/ProofVerifierService.swift`
+- `solidarity/Services/Identity/ProofVerifierService+VPToken.swift`
+
+---
+
+## Verifier Side (Web — No App)
+
+### [VF-W] Web Verifier
+
+Triggered: default camera scans Smart QR → opens `verify.solidarity.app` in browser
+
+```
+┌──────────────────────────────────────────┐
+│  [Solidarity Logo]                       │
+│                                          │
+│       ✅ This person is an adult         │
+│       Age ≥ 18                           │
+│                                          │
+│  Source: Passport · 🟢 ZKP Verified      │
+│                                          │
+│  This proof doesn't include name or      │
+│  any other personal information.         │
+│  ─────────────────────                   │
+│  What is a zero-knowledge proof?         │
+│  The person used their passport to       │
+│  generate a mathematical proof that      │
+│  they're 18+, revealing nothing else.   │
+│  ─────────────────────                   │
+│  [Download Solidarity App]               │
+└──────────────────────────────────────────┘
+```
+
+**Technology**:
+- Self-hosted static web + WASM ZK verifier (snarkjs or mopro-wasm)
+- Proof is in URL fragment → server never sees it (server-side privacy)
+- Verification logic runs in browser
+- iOS App Clip: Universal Link can trigger App Clip for native experience
+
+---
+
+## VP Token Structure (OID4VP)
+
+```json
+{
+  "iss": "did:key:z6Mk...",
+  "iat": 1710000000,
+  "exp": 1710000045,
+  "nonce": "verifier-provided-nonce",
+  "aud": "https://bar-abc.example.com",
+  "vp": {
+    "@context": ["https://www.w3.org/2018/credentials/v1"],
+    "type": ["VerifiablePresentation"],
+    "holder": "did:key:z6Mk...",
+    "verifiableCredential": [
+      "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9..."
+    ]
+  }
+}
+```
+
+A single VP can carry multiple VC JWTs.
+
+**Code**: `solidarity/Services/Identity/OID4VPPresentationService.swift` (`wrapCredentialsAsVP`)

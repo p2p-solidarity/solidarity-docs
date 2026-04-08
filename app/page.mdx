@@ -1,127 +1,73 @@
 ---
-title: Introduction
-description: Privacy-first business card sharing with zero-knowledge proofs
+title: Solidarity
+description: A decentralized identity wallet. Identity, with warmth.
 ---
 
-# Solidarity
+# Identity, with warmth.
 
-**Privacy-first business card sharing** that puts you in control. Share your contact information securely without compromising your privacy or relying on cloud services.
+Zero-knowledge proofs mean you don't have to trust anyone.
+Face-to-face exchange means you choose who to trust.
 
-## What is Solidarity?
+**Solidarity** is a decentralized identity wallet. Scan your passport and generate zero-knowledge proofs on your phone — prove who you are without revealing who you are. Exchange cryptographically signed cards face to face, building a verifiable social graph one encounter at a time. No special hardware. No institutional gatekeepers.
 
-Solidarity is a mobile app that lets you create, share, and manage digital business cards with advanced privacy controls. Unlike traditional networking apps, everything works offline and your data never leaves your device.
+---
 
-## Key Benefits
+## Three Pillars
 
-### 🔒 Complete Privacy Control
-- **Three privacy levels**: Public, Professional, and Personal
-- **Share only what's needed** for each situation
-- **No tracking or data collection** - everything stays on your device
+### ① Verified Contact Graph
 
-### 🌐 Works Anywhere
-- **No internet required** for sharing contacts
-- **Peer-to-peer technology** connects devices directly
-- **QR codes** work even when devices can't connect
+Not "I have a passport, therefore I'm a real person" — but "I've exchanged cards face to face with 50 people, each cryptographically signed." This forms a verifiable social graph.
 
-### 🎭 Anonymous Verification
-- **Prove group membership** without revealing your identity
-- **Zero-knowledge proofs** verify credentials cryptographically
-- **No central authority** needed for verification
+The graph isn't just a contact book — it's a verifiable social trust primitive that can serve as input for reputation systems, quadratic voting, and other applications. No competitor does this.
 
-### ⚡ Instant & Seamless
-- **One-tap sharing** via QR codes or device-to-device
-- **Apple Wallet integration** for quick access
-- **Automatic organization** of received contacts
+### ② Ephemeral Message at the Moment of Exchange
 
-## Perfect For
+A short text message (max 140 characters) at the moment of face-to-face exchange, from both sides. Not a chat. Not a feed. A digital memento of that day, that place, that encounter. No competitor has this.
 
-**Networking Events** - Share professional info quickly and securely
+### ③ Zero-Knowledge Proofs + Zero Infrastructure
 
-**Business Meetings** - Exchange verified credentials without oversharing
+Solidarity supports two verification paths:
 
-**Social Gatherings** - Control what personal information you reveal
+- **App-to-App**: verifier has Solidarity → scan QR, verify ZK proof locally, no network needed
+- **No-App fallback**: verifier has no Solidarity → QR contains URL → opens self-hosted verifier webpage, browser-side WASM verification, zero install, zero third-party
 
-**Group Verification** - Prove membership in organizations anonymously
+No special hardware. No registration with any institution.
 
-## How It Works
+---
 
-1. **Create your digital business card** with different privacy levels
-2. **Choose what to share** based on the situation (public/professional/personal)
-3. **Share instantly** via QR code, device-to-device, or Apple Wallet
-4. **Verify group membership** using zero-knowledge proofs when needed
+## Design Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **Privacy-first** | Data never leaves your device. Private keys guarded by Face ID. |
+| **Self-sovereign** | No institutional permission required. Your data, your rules. |
+| **Open standards** | Built on W3C VC, DID, OID4VP. No vendor lock-in. |
+| **Zero infrastructure** | No servers. No blockchain. No middlemen. |
+| **Zero-install verification** | Verifiers don't need the app. Scan a QR code, verify on the spot. |
+| **Extensible** | The passport is just the beginning. |
+
+---
+
+## Three Tabs
+
+```
+┌──────────────┬──────────────┬──────────────┐
+│   People     │    Share     │     Me       │
+│  Contacts    │  Share Card  │  My Identity │
+└──────────────┴──────────────┴──────────────┘
+        QR Scanner is in Share tab (top-left)
+```
+
+- **People** — Manage contacts, view face-to-face verified records and common friends, trigger card exchange
+- **Share** — Display your card QR Code, or launch proximity radar to find nearby users
+- **Me** — Manage identity credentials (passport ZKP, social graph), present proofs to verifiers
+
+---
 
 ## Get Started
 
-Ready to take control of your networking privacy?
-
-- **[Usage Guide](/usage)** - Learn how to use Solidarity effectively
-- **[Architecture](/architecture)** - Explore technical architecture and features
-- **[Contributing](/contribute)** - Build and contribute to the app
-
----
-
-*Solidarity: Networking without compromise.*
-
----
-title: Introduction
-description: Privacy-first business card sharing with zero-knowledge proofs
----
-
-# Solidarity
-
-**Privacy-first business card sharing** that puts you in control. Share your contact information securely without compromising your privacy or relying on cloud services.
-
-## What is Solidarity?
-
-Solidarity is a mobile app that lets you create, share, and manage digital business cards with advanced privacy controls. Unlike traditional networking apps, everything works offline and your data never leaves your device.
-
-## Key Benefits
-
-### 🔒 Complete Privacy Control
-- **Three privacy levels**: Public, Professional, and Personal
-- **Share only what's needed** for each situation
-- **No tracking or data collection** - everything stays on your device
-
-### 🌐 Works Anywhere
-- **No internet required** for sharing contacts
-- **Peer-to-peer technology** connects devices directly
-- **QR codes** work even when devices can't connect
-
-### 🎭 Anonymous Verification
-- **Prove group membership** without revealing your identity
-- **Zero-knowledge proofs** verify credentials cryptographically
-- **No central authority** needed for verification
-
-### ⚡ Instant & Seamless
-- **One-tap sharing** via QR codes or device-to-device
-- **Apple Wallet integration** for quick access
-- **Automatic organization** of received contacts
-
-## Perfect For
-
-**Networking Events** - Share professional info quickly and securely
-
-**Business Meetings** - Exchange verified credentials without oversharing
-
-**Social Gatherings** - Control what personal information you reveal
-
-**Group Verification** - Prove membership in organizations anonymously
-
-## How It Works
-
-1. **Create your digital business card** with different privacy levels
-2. **Choose what to share** based on the situation (public/professional/personal)
-3. **Share instantly** via QR code, device-to-device, or Apple Wallet
-4. **Verify group membership** using zero-knowledge proofs when needed
-
-## Get Started
-
-Ready to take control of your networking privacy?
-
-- **[Usage Guide](/usage)** - Learn how to use Solidarity effectively
-- **[Architecture](/architecture)** - Explore technical architecture and features
-- **[Contributing](/contribute)** - Build and contribute to the app
-
----
-
-*Solidarity: Networking without compromise.*
+- [Quick Start →](/usage/quick-start) — Onboarding: build your digital identity in 3 minutes
+- [Face-to-Face Exchange →](/usage/sharing-methods) — Exchange cryptographically signed cards
+- [Present Proof →](/usage/use-cases) — Show age or humanhood proofs to verifiers
+- [App Features →](/usage/features) — Screen structure and component overview
+- [Architecture →](/architecture) — Technical architecture and design decisions

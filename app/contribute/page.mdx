@@ -1,109 +1,185 @@
 ---
 title: Contributing
-description: Contributing to Solidarity development
+description: Getting started with Solidarity development — iOS app and Noir ZK circuits
 ---
 
 # Contributing
 
-Welcome to Solidarity! This guide will help you get started with building the app and contributing to the documentation.
+Solidarity is split across two repositories. Contributions to the iOS app and to the ZK circuits follow different workflows.
 
-## Contributing to the App
+---
+
+## Repositories
+
+| Repo | Language | What it contains |
+|------|----------|-----------------|
+| [p2p-solidarity/solidarity](https://github.com/p2p-solidarity/solidarity) | Swift / iOS | iOS app, P2P exchange, VC/VP, Apple Wallet |
+| [p2p-solidarity/passport-noir](https://github.com/p2p-solidarity/passport-noir) | Noir / Rust / Swift | ZK circuits, mopro bindings, OpenAC protocol |
+
+---
+
+## iOS App — `p2p-solidarity/solidarity`
 
 ### Prerequisites
 
-Before you begin, make sure you have the following installed:
-
-- **Xcode 15.0+** with iOS 16.0+ SDK
-- **macOS 13.0+** (Ventura or later)
-- **Apple Developer Account** (for device testing and distribution)
+- **Xcode 16.0+** with iOS 17.0+ SDK
+- **macOS 14.0+** (Sonoma or later)
+- **Apple Developer Account** (for device testing, NFC, PassKit)
 
 ### Quick Start
 
-#### Clone the Repository
-
 ```bash
-git clone https://github.com/kidneyweakx/solidarity.git
-cd solidarity/airmeishi
+git clone https://github.com/p2p-solidarity/solidarity.git
+cd solidarity
+open solidarity.xcodeproj
 ```
 
-#### Open in Xcode
+Dependencies resolve automatically via Swift Package Manager (including `OpenPassportSwift` from passport-noir).
 
-```bash
-open airmeishi.xcodeproj
-```
-
-All dependencies are managed via Swift Package Manager and will be automatically resolved when you open the project.
-
-#### Build and Run
-
-Press **⌘+R** or click the "Run" button in Xcode to build and launch the app in the simulator.
-
-### Testing P2P Features
-
-Since Solidarity is built around peer-to-peer networking, you'll need two devices to test the proximity features:
-
-#### Option 1: Two Physical Devices
-
-- Connect both devices to the same WiFi network
-- Install the app on both devices via Xcode or TestFlight
-- Open the app on both devices
-- They should automatically discover each other
-
-#### Option 2: Device + Simulator
-
-- Connect your physical device to the same network as your Mac
-- Run the app on your device
-- Run another instance in the iOS Simulator
-- Enable network sharing in simulator settings
-
-#### Testing QR Code Sharing
-
-The easiest way to test without multiple devices:
-
-- Create a business card in the app
-- Generate a QR code
-- Save the QR code to Photos
-- Use another device or QR scanner app to scan it
+Press **⌘+R** to build and run in simulator.
 
 ### Project Structure
 
 ```
-airmeishi/
-├── airmeishi/                 # Main app code
-│   ├── Views/                 # SwiftUI views
-│   ├── Models/                # Data models
-│   ├── Services/              # Business logic & services
-│   ├── Resources/             # Assets and resources
-│   └── airmeishiApp.swift     # App entry point
-├── airmeishiClip/            # App Clip (lightweight version)
-├── airmeishiTests/           # Unit tests
-└── airmeishiUITests/         # UI tests
+solidarity/
+├── solidarity/
+│   ├── Models/            # SwiftData models (Contact, IdentityCard, etc.)
+│   ├── Views/
+│   │   ├── Common/        # MainTabView, Toast, shared components
+│   │   ├── PeopleViews/   # People tab + contact detail
+│   │   ├── SharingViews/  # Share tab (QR display)
+│   │   ├── MeViews/       # Me tab (identity management)
+│   │   ├── ScanViews/     # QR scanner + proof presentation
+│   │   ├── MatchViews/    # Proximity matching + exchange flow
+│   │   ├── CardViews/     # Business card + Apple Wallet
+│   │   ├── SettingsViews/ # All settings screens
+│   │   └── Onboarding/    # First-launch flow
+│   ├── Services/
+│   │   ├── Identity/      # DID, VC, VP, OIDC, Passport pipeline
+│   │   ├── Sharing/       # Proximity, PassKit, QR, payload encryption
+│   │   ├── ZK/            # mopro, Semaphore, proof generation
+│   │   ├── Card/          # QR generation/scanning, format handling
+│   │   ├── Vault/         # Encrypted storage, time-lock
+│   │   └── SocialGraph/   # Common friends hash exchange
+│   └── SolidarityApp.swift
+├── solidarityClip/        # App Clip
+├── solidarityTests/
+└── solidarityUITests/
 ```
+
+### Testing P2P Features
+
+P2P proximity requires two devices:
+
+**Option 1: Two physical devices**
+- Connect both to the same Wi-Fi
+- Install via Xcode or TestFlight
+
+**Option 2: Physical device + simulator**
+- Ensure both are on the same network
+
+**QR testing (single device)**
+- Generate a QR code in Share tab → Save to Photos → scan with another device
 
 ### Troubleshooting
 
-#### Dependencies not resolving
+**Dependencies not resolving**
+```
+File → Packages → Reset Package Caches
+⌘+Shift+K (clean build folder)
+⌘+B (rebuild)
+```
 
-If Swift Package Manager fails to resolve dependencies:
-
-- In Xcode, go to **File → Packages → Reset Package Caches**
-- Clean the build folder: **⌘+Shift+K**
-- Rebuild: **⌘+B**
-
-#### MultipeerConnectivity not working
-
-Make sure you've added the required permissions to `Info.plist`:
-
+**MultipeerConnectivity not working** — `Info.plist` must contain:
 - `NSLocalNetworkUsageDescription`
 - `NSBonjourServices`
 
-#### Simulator networking issues
+**NFC in simulator** — NFC requires a physical device. Passport scanning cannot be tested in simulator.
 
-Try resetting the simulator's network settings:
-
+**Simulator networking**
 ```bash
 xcrun simctl shutdown all
 xcrun simctl erase all
 ```
 
-Then restart Xcode and try again.
+---
+
+## ZK Circuits — `p2p-solidarity/passport-noir`
+
+### Prerequisites
+
+- **Nargo** (Noir toolchain) — install via `noirup`
+- **Rust + cargo** (for mopro iOS bindings)
+- **Xcode** (for xcframework build)
+
+```bash
+curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+noirup
+```
+
+### Quick Start
+
+```bash
+git clone https://github.com/p2p-solidarity/passport-noir.git
+cd passport-noir/circuits
+
+# Compile all circuits
+nargo compile
+
+# Run all circuit tests
+nargo test --workspace
+```
+
+### Project Structure
+
+```
+passport-noir/
+├── circuits/
+│   ├── passport_verifier/   # RSA-2048 Active Authentication (ICAO 9303)
+│   ├── data_integrity/      # DG hash chain Passive Authentication
+│   ├── disclosure/          # TD3 MRZ selective disclosure (age, nationality, name)
+│   ├── passport_adapter/    # OpenAC Prepare: passport → Pedersen commitment
+│   ├── sdjwt_adapter/       # OpenAC Prepare: SD-JWT → Pedersen commitment
+│   ├── openac_show/         # OpenAC Show: generic challenge binding + predicates
+│   ├── prepare_link/        # OpenAC primitive: prepare commitment
+│   ├── show_link/           # OpenAC primitive: challenge + scope binding
+│   ├── device_binding/      # ECDSA P-256 Secure Enclave device binding
+│   └── openac_core/         # Shared library: commit / show / predicate
+├── mopro-binding/           # Rust FFI + iOS xcframework build
+├── Sources/                 # Swift Package entry point + OpenAC helper APIs
+└── Package.swift            # iOS 15+ Swift Package (distributed via GitHub releases)
+```
+
+### Circuit Development Workflow
+
+```bash
+# Work on a single circuit
+cd circuits/disclosure
+nargo check       # type-check
+nargo test        # run tests in src/
+nargo compile     # compile to JSON artifact
+
+# Build iOS xcframework (after circuit changes)
+cd ../../mopro-binding
+make build-ios    # Rust → xcframework (takes ~10 min)
+```
+
+### Updating the Swift Package in the App
+
+After building a new xcframework:
+
+1. Create a new GitHub release in `passport-noir` with the xcframework as a binary attachment
+2. Update the `binaryTarget` URL and checksum in `Package.swift`
+3. In the solidarity app: **File → Packages → Update to Latest Package Versions**
+
+### What to Contribute Where
+
+| Task | Repo |
+|------|------|
+| New disclosure predicate (e.g. prove name prefix) | passport-noir → `circuits/disclosure/` |
+| OpenAC device binding integration | passport-noir → `circuits/device_binding/` + solidarity → `Services/ZK/MoproProofService.swift` |
+| New credential adapter (e.g. mDL) | passport-noir → `circuits/<name>_adapter/` |
+| VP presentation UI | solidarity → `Views/ScanViews/` |
+| OIDC flow improvement | solidarity → `Services/Identity/OID4VPPresentationService.swift` |
+| P2P exchange protocol | solidarity → `Services/Sharing/ProximityManager.swift` |
+| New trust level badge | solidarity → `Models/VerificationStatus.swift` |

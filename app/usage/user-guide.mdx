@@ -1,0 +1,223 @@
+---
+title: Screen Components Guide
+description: Detailed breakdown of views, data flow, and code references for Me / People / Share tabs
+---
+
+# Screen Components Guide
+
+A developer-focused breakdown of view hierarchy, data flow, and service layer for all three main tabs.
+
+---
+
+## App Entry Point
+
+```swift
+// solidarity/SolidarityApp.swift
+// solidarity/AppDelegate.swift
+// solidarity/Views/Common/MainTabView.swift
+```
+
+App launch → returning user: Face ID → Tab Bar. First launch: Onboarding flow (O-1 → O-5).
+
+---
+
+## Tab 1 — People
+
+### Component Tree
+
+```
+PeopleListView
+├── NavigationBar [People] [＋] [↔ Exchange]
+├── SearchBar (local filter by name/company/title)
+├── Section: Verified
+│   └── ContactRowView (for each isVerified=true Contact)
+│       ├── AvatarView (animal character or photo)
+│       ├── Name + Company
+│       ├── ✅ Exchange date
+│       └── Ephemeral message snippet (theirEphemeralMessage first 50 chars)
+├── Section: Contacts
+│   └── ContactRowView (imported or manually added contacts)
+└── EmptyState [PL-1e] or [PL-1v]
+```
+
+**Views**: `solidarity/Views/PeopleViews/PeopleListView.swift`
+
+### Person Detail Component Tree
+
+```
+PersonDetailView [PL-2]
+├── NavigationBar [← Back] [Share] [Edit]
+├── AvatarView
+├── Header (name, company/title, ✅ verification status)
+├── Ephemeral Message Section (only shown for isVerified=true)
+│   ├── My message (myEphemeralMessage)
+│   └── Their message (theirEphemeralMessage)
+├── Contact Info Section
+│   ├── 📧 Email
+│   ├── 📱 Phone
+│   └── 🔗 Social Links
+└── Actions
+    ├── [Call]
+    ├── [Email]
+    └── [Share Contact]
+```
+
+### Face-to-Face Exchange Component Tree
+
+```
+MatchingRootView
+└── MatchingView [EX-1]
+    ├── RadarAnimationView
+    ├── NearbyPeersSheet
+    │   └── PeerRowView (shows common friend count)
+    └── ConnectPeerPopupView [EX-2]
+        ├── Common friends list
+        ├── My card preview
+        └── [Exchange with Face ID] CTA
+```
+
+**Views**:
+- `solidarity/Views/MatchViews/MatchingView.swift`
+- `solidarity/Views/MatchViews/NearbyPeersSheet.swift`
+- `solidarity/Views/MatchViews/ConnectPeerPopupView.swift`
+- `solidarity/Views/MatchViews/ShareCardPickerSheet.swift`
+
+**Services**:
+- `solidarity/Services/Sharing/ProximityManager.swift` — MultipeerConnectivity management
+- `solidarity/Services/SocialGraph/` — common friends hash exchange
+
+---
+
+## Tab 2 — Share
+
+### Component Tree
+
+```
+SharingTabView
+├── NavigationBar [📷 Scan (top-left)] [Share]
+├── QRCodeView (based on sharingFormat)
+│   ├── plaintext mode
+│   ├── zkProof mode
+│   └── didSigned mode
+├── CardInfoView (card summary)
+├── [Radar] → MatchingView
+└── [Share Link] → ShareLinkOptionsView
+```
+
+**Views**:
+- `solidarity/Views/SharingViews/SharingTabView.swift`
+- `solidarity/Views/MatchViews/ShareLinkOptionsView.swift`
+
+**QR Services**:
+- `solidarity/Services/Card/QRCodeGenerationService.swift`
+- `solidarity/Services/Card/QRCodeModels.swift`
+
+### QR Format Reference
+
+| Format | Description | Receiver-side handling |
+|--------|-------------|----------------------|
+| `plaintext` | Plain text card snapshot | Direct parse |
+| `zkProof` | Encrypted payload + issuerProof/sdProof | Decrypt + verify proof |
+| `didSigned` | Compressed JWT VC string | JWT verify → import as credential |
+
+### ScanTabView Component Tree
+
+```
+ScanTabView [SC-1]
+├── CameraPreviewView (full-screen)
+├── QRFrameView (scan overlay)
+└── QRCodeScanService (AVFoundation)
+    └── → QRContentRouter [SC-2]
+        ├── openid4vp:// → ProofPresentationFlowSheet
+        ├── VP token → ProofVerifierService
+        └── other → Toast
+```
+
+**Views**:
+- `solidarity/Views/ScanViews/ScanTabView.swift`
+- `solidarity/Views/ScanViews/ProofPresentationFlowSheet.swift`
+
+**Services**:
+- `solidarity/Services/Card/QRCodeScanService.swift`
+- `solidarity/Services/Card/QRCodeScanService+Handlers.swift`
+
+---
+
+## Tab 3 — Me
+
+### Component Tree
+
+```
+MeTabView [Me-1]
+├── NavigationBar [My Identity] [⚙️]
+├── UserHeaderView (avatar, name, DID — tap to reveal)
+├── CredentialCardsSection
+│   └── CredentialCardView (for each IdentityCard)
+│       ├── Type icon (🛂 Passport / 🕸️ Social Graph)
+│       ├── Trust Badge (🟢/🔵/⚪)
+│       ├── Verification method (ZKP Verified / NFC Verified)
+│       └── [View Details →]
+├── ProvableClaimsSection
+│   └── ClaimRowView (for each ProvableClaim)
+│       ├── 🟢/🔵/⚪ icon
+│       ├── Description ("I'm 18+")
+│       ├── Source ("Passport · ZKP")
+│       └── [Present →] → PR-1b QR display
+└── AddMoreSection
+    ├── [＋ Scan Passport] → PP-1
+    └── [＋ Import Credential] → Me-3
+```
+
+**Views**: `solidarity/Views/MeViews/MeTabView.swift`
+
+**Services**:
+- `solidarity/Services/Identity/VCService.swift`
+- `solidarity/Services/Identity/OID4VPPresentationService.swift`
+
+### Proof Presentation Component Tree
+
+```
+PR-1b: SelfInitiatedQRView
+├── ProofTypeLabel (🟢 Age ≥ 18)
+├── QRCodeView (Smart QR)
+├── NotDisclosedLabel (fields not revealed)
+└── CountdownView (circular 45s progress bar)
+    └── Expiry → auto re-sign and refresh
+```
+
+---
+
+## Shared Components (Common)
+
+Located in `solidarity/Views/Common/`:
+
+| Component | Description |
+|-----------|-------------|
+| `MainTabView.swift` | Tab bar container |
+| `ReceivedCardView.swift` | Display a received card |
+| `Toast.swift` | Global toast notifications |
+| `DecorativeBlobs.swift` | Background decorative shapes |
+| `RedactionSwitcherView.swift` | Privacy level switcher |
+| `WinSystemErrorDialog.swift` | Error dialog |
+
+---
+
+## Apple Wallet Integration
+
+PassKit `.pkpass` flow:
+
+```
+WalletPassGenerationView (CardViews/)
+└── PassKitManager
+    ├── createPassBundle() — assemble pass.json locally
+    ├── generateManifest() — SHA256 hashes of assets
+    ├── signManifest() — POST to Cloudflare Worker
+    └── PKAddPassesViewController — let user add to Wallet
+```
+
+The QR barcode in the pass contains an app import URL, so recipients can import it as a Solidarity contact.
+
+**Code**:
+- `solidarity/Services/Sharing/PassKitManager.swift`
+- `solidarity/Services/Sharing/PassKitManager+Generation.swift`
+- `solidarity/Views/CardViews/WalletPassGenerationView.swift`

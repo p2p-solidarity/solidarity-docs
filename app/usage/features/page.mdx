@@ -1,130 +1,281 @@
 ---
 title: App Features
-description: Understanding Solidarity's main features and how to use them
+description: Screen structure, components, and spec → code mapping for all three tabs
 ---
 
 # App Features
 
-Solidarity has four main sections, each designed for a specific purpose. Here's what each one does.
+Solidarity uses three main tabs to organize all functionality. Below is the screen structure, key components, and corresponding code for each tab.
 
-## 📇 Cards
+## Tab Structure
 
-**Your digital business cards**
+```
+┌──────────────┬──────────────┬──────────────┐
+│   People     │    Share     │     Me       │
+│  person.2    │  qrcode      │  person.text │
+│    .fill     │  .viewfinder │  .rectangle  │
+└──────────────┴──────────────┴──────────────┘
+```
 
-Create and manage your business cards with different information for different contexts.
+**Code**: `solidarity/Views/Common/MainTabView.swift`
 
-**What you can do:**
-- Create multiple cards (work, personal, event-specific)
-- Add contact info, social links, skills
-- Choose what to share each time
-- Save to Apple Wallet
+| Tab | View | Description |
+|-----|------|-------------|
+| People | `PeopleListView.swift` | Contact list, face-to-face exchange entry |
+| Share | `SharingTabView.swift` | QR Code display + proximity radar |
+| Me | `MeTabView.swift` | Identity credential management, proof presentation |
 
-**Privacy levels:**
-- **Public** - Name and basic info only
-- **Professional** - Work details included
-- **Personal** - Full contact information
-
----
-
-## ⚡ Match
-
-**Share with people nearby**
-
-Connect face-to-face with others using Solidarity without internet.
-
-**How it works:**
-1. Both people open the app
-2. Nearby devices appear automatically
-3. Tap to connect and share
-4. Choose your privacy level
-
-**Also supports:**
-- QR code scanning
-- Manual card entry
-- Share links for remote contacts
+The QR Scanner is in the top-left of Share Tab → `ScanTabView.swift`.
 
 ---
 
-## 🎯 Shoutout
+## Tab 1 — People
 
-**Discover other users**
+### Main Screen [PL-1] People List
 
-Browse business cards shared publicly by other Solidarity users.
+```
+┌─ Navigation Bar ────────────────────────┐
+│ People                       [＋] [↔ Exchange] │
+├─────────────────────────────────────────┤
+│ 🔍 Search                               │
+├─ Verified ──────────────────────────────┤
+│ 👤 Mei                     ✅ 2025-03-15 │
+│    Sprout Labs · Designer                │
+│    "Met at DID workshop!"               │
+├─ Contacts ──────────────────────────────┤
+│ 👤 Alice Wang                            │
+│    (imported from phone contacts)        │
+└──────────────────────────────────────────┘
+```
 
-**What you'll find:**
-- Public profiles from the community
-- Cards organized by categories
-- Search and filter options
-- Lightning-themed discovery feed
+**Components**:
+- **Verified section** — contacts exchanged face-to-face (`isVerified = true`), shows exchange date and ephemeral message snippet
+- **Contacts section** — imported or manually added contacts
+- **[↔ Exchange]** → EX-1 Discovery (face-to-face exchange flow)
+- **[＋]** → PL-3 manually add contact
 
-**Note:** Only users who choose to share publicly appear here. Your cards stay private unless you opt in.
+**Empty states**:
+- No contacts at all [PL-1e] → CTA "Import phone contacts"
+- Has contacts but no verified [PL-1v] → "No face-to-face verified contacts yet" + [Exchange Cards]
 
----
-
-## 🔐 ID
-
-**Identity and group management**
-
-Manage your cryptographic identity and group memberships for anonymous verification.
-
-**Four group types:**
-
-### 1. **Personal Groups** (Local)
-Groups you create and manage on your device.
-
-- Add members manually (by commitment)
-- Full control over membership
-- Great for: small teams, events, meetups
-
-### 2. **Invited Groups** (P2P)
-Groups you join via direct invitation.
-
-- Receive invite from group owner
-- Join with your cryptographic commitment
-- Great for: private communities, friend circles
-
-### 3. **On-Chain Groups** (Blockchain)
-Groups synced with Ethereum smart contracts.
-
-- Verifiable membership on blockchain
-- Decentralized and tamper-proof
-- Great for: DAOs, token-gated communities
-
-### 4. **ENS Groups** (Domain-based)
-Groups registered via Ethereum Name Service.
-
-- Join by ENS domain (e.g., `mygroup.eth`)
-- Automatic membership verification
-- Great for: public organizations, open communities
-
-**Why use groups?**
-- Prove you're part of a group without revealing your identity
-- Share credentials anonymously
-- Verify membership with zero-knowledge proofs
-
-**Quick actions:**
-- Tap ID tab icon → Generate proof (copies to clipboard)
-- Use proof to verify group membership
-- No personal info revealed
+**Code**: `solidarity/Views/PeopleViews/PeopleListView.swift`
 
 ---
 
-## Quick Tips
+### Person Detail [PL-2]
 
-**Switching between features:**
-- Use the bottom tab bar
-- Cards, Match, Shoutout, ID
+```
+┌─ Navigation Bar ────────────────────────┐
+│ [← Back]  Mei               [Share] [Edit] │
+├──────────────────────────────────────────┤
+│         [Avatar]                          │
+│         Mei                              │
+│         Sprout Labs · Product Designer    │
+│         ✅ Verified · 2025-03-15          │
+│         📍 ETHGlobal Taipei              │
+├─ Ephemeral Message ─────────────────────┤
+│ 💬 You wrote to Mei:                     │
+│    "Met at DID workshop!"               │
+│ 💬 Mei wrote to you:                    │
+│    "Great meeting you! 🙌"              │
+├─ Contact Info ──────────────────────────┤
+│ 📧 mei@sprout.tw                        │
+│ 📱 0912-345-678                         │
+│ 🔗 linkedin.com/in/mei                  │
+├─ Actions ───────────────────────────────┤
+│ [Call] [Email] [Share Contact]          │
+└──────────────────────────────────────────┘
+```
 
-**Privacy-first:**
-- All data stored on your device
-- Choose what to share each time
-- No tracking or analytics
-
-**Offline-capable:**
-- Match works without internet
-- QR codes work anywhere
-- Local-first design
+The ephemeral message section only appears for `isVerified = true` contacts.
 
 ---
 
-**Next:** Learn about [specific sharing methods](/docs/usage/sharing-methods) or check out [common use cases](/docs/usage/use-cases).
+## Tab 2 — Share
+
+### Main Screen SharingTabView
+
+```
+┌─ Navigation Bar ──────────────────────────┐
+│ [📷 Scan]              Share               │
+├────────────────────────────────────────────┤
+│                                            │
+│         [Your Business Card QR Code]       │
+│                                            │
+│   ┌─────────────────────────────────┐      │
+│   │         [QR Code]               │      │
+│   └─────────────────────────────────┘      │
+│                                            │
+│   Ming · Acme Corp                         │
+│                                            │
+│   [Radar / Nearby]  [Share Link]           │
+└────────────────────────────────────────────┘
+```
+
+**Components**:
+- **QR Code display** — outputs one of three formats based on `sharingFormat`
+- **[📷 Scan]** — top-left scanner entry → ScanTabView
+- **[Radar]** — launch proximity matching → MatchingView
+
+**Code**:
+- `solidarity/Views/SharingViews/SharingTabView.swift`
+- `solidarity/Services/Card/QRCodeGenerationService.swift`
+- `solidarity/Views/MatchViews/MatchingView.swift`
+
+---
+
+### QR Scanner [SC-1] ScanTabView
+
+```
+┌──────────────────────────────────────────┐
+│   [Full-screen camera]                   │
+│                                          │
+│   ┌────────────┐                         │
+│   │  QR frame  │                         │
+│   └────────────┘                         │
+│                                          │
+│   Scan QR Code                           │
+│   Present proof · Receive credential     │
+│   · Verify others                        │
+└──────────────────────────────────────────┘
+```
+
+**QR Router [SC-2]** — parses QR payload and routes:
+
+| QR Prefix | Action | Target Screen |
+|-----------|--------|---------------|
+| `openid4vp://` | Present Proof | PR-1 Proof Request Review |
+| VP token (JWT) | Verify Proof | VF-1 Verification Result |
+| `solidarity-verify://` | Self-hosted verifier deep link | VF-1 |
+| VCF format | Add contact | PL-3 pre-filled |
+| Unrecognized | Error | inline toast |
+
+**Code**: `solidarity/Views/ScanViews/ScanTabView.swift`, `solidarity/Services/Card/QRCodeScanService.swift`
+
+---
+
+## Tab 3 — Me
+
+### Main Screen [Me-1] Me Overview
+
+```
+┌─ Navigation Bar ────────────────────────┐
+│ My Identity                        [⚙️]  │
+├──────────────────────────────────────────┤
+│         [Avatar]                         │
+│         Ming                            │
+│         did:key:z6Mk... (tap to reveal) │
+├─ My Identity Cards ────────────────────┤
+│ ┌───────────────────────────────────┐    │
+│ │ 🛂 Passport          🟢 Government │    │
+│ │ Trust: ROC Ministry of Foreign    │    │
+│ │ Affairs · ZKP Verified ✓          │    │
+│ │ [View Details →]                  │    │
+│ └───────────────────────────────────┘    │
+│ ┌───────────────────────────────────┐    │
+│ │ 🕸️ Social Graph     ⚪ Self-Issued  │    │
+│ │ 47 face-to-face verified contacts │    │
+│ │ [View Details →]                  │    │
+│ └───────────────────────────────────┘    │
+├─ What I Can Prove ─────────────────────┤
+│ ┌───────────────────────────────────┐    │
+│ │ 🟢 I'm 18+              [Present →]│    │
+│ │    Source: Passport · ZKP         │    │
+│ ├───────────────────────────────────┤    │
+│ │ 🟢 I'm a real human    [Present →]│    │
+│ │    Source: Passport · ZKP         │    │
+│ └───────────────────────────────────┘    │
+├─ Add More ─────────────────────────────┤
+│ [＋ Scan Passport]  [＋ Import Credential]│
+└──────────────────────────────────────────┘
+```
+
+**Trust level badges**:
+- 🟢 Government — passport ZKP verified
+- 🔵 Institution — institution-issued VC (v2)
+- ⚪ Self-issued — social graph and other self-issued VCs
+
+**[Present →]** → [PR-1b] Self-Initiated QR Display, shows Smart QR for verifier to scan.
+
+**Code**: `solidarity/Views/MeViews/MeTabView.swift`
+
+---
+
+### Settings [ST-1] (accessed via ⚙️ in Me Tab)
+
+```
+┌─ Navigation Bar ────────────────────────┐
+│ [← Back]  Settings                      │
+├─ Account ───────────────────────────────┤
+│ Device key: ✅ Created                   │
+│ Cross-device sync: ✅ iCloud Keychain   │
+├─ Security ──────────────────────────────┤
+│ Social Recovery: ✅ Set (5 guardians)    │
+├─ Backup ────────────────────────────────┤
+│ iCloud Backup          [Toggle]          │
+├─ Import / Export ──────────────────────┤
+│ [Import VCF Contacts]                   │
+│ [Export All Data]     → Face ID confirm  │
+│ [Export Social Graph] → Face ID confirm  │
+├─ Advanced ──────────────────────────────┤
+│ [View My DIDs]                          │
+│ [Regenerate ZK Proof]                   │
+└──────────────────────────────────────────┘
+```
+
+**Code**: `solidarity/Views/SettingsViews/` (multiple settings screens)
+
+---
+
+## Data Models
+
+### Contact
+
+```swift
+// solidarity/Models/Contact.swift
+@Model
+class Contact {
+    var name: String
+    var isVerified: Bool = false        // true only for face-to-face exchanges
+    var verifiedAt: Date?
+    var didPublicKey: String?           // peer's DID public key
+    var exchangeSignature: Data?        // peer's exchange signature
+    var myExchangeSignature: Data?      // my exchange signature (for Graph Export)
+    var myEphemeralMessage: String?     // message I wrote to them
+    var theirEphemeralMessage: String?  // message they wrote to me
+    var source: String                  // "imported" | "exchanged" | "manual"
+}
+```
+
+### IdentityCard
+
+```swift
+// solidarity/Models/IdentityEntities.swift
+@Model
+class IdentityCard {
+    var type: String           // "passport" | "socialGraph" | "imported"
+    var trustLevel: String     // "government" | "institution" | "selfIssued"
+    var issuerName: String     // "ROC Ministry of Foreign Affairs"
+    var verificationMethod: String  // "ZKP Verified" | "NFC Verified"
+    var rawVC: Data            // serialized W3C VC
+}
+```
+
+---
+
+## Screen ID Index (42 screens)
+
+| ID | Screen | Tab / Context | Priority |
+|----|--------|---------------|----------|
+| O-1 ~ O-5 | Onboarding flow | Onboarding | P0/P1 |
+| PL-1, PL-1e, PL-1v | People List | People | P0 |
+| PL-2, PL-3 | Person Detail / Add Contact | People | P0 |
+| EX-1 ~ EX-5 | Face-to-face exchange flow | People (modal) | P0 |
+| SC-1, SC-2 | Scan Camera + Router | Share | P0 |
+| VF-1, VF-1c, VF-W | Verification results | Shared Modal | P0 |
+| Me-1, Me-1e, Me-2, Me-3 | Me overview + credential detail | Me | P0/P1 |
+| PP-1 ~ PP-4 | Passport Scan sub-flow | Shared Modal | P0 |
+| PR-1, PR-1b, PR-2, PR-3 | Proof presentation flow | Shared Modal | P0 |
+| GR-1, GR-2 | Social Graph credential + export | Me / Modal | P0/P1 |
+| SR-1, SR-2, SR-3 | Social Recovery | Shared Modal | P1 |
+| ST-1 | Settings | Me (push) | P1 |

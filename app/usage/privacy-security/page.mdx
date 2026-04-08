@@ -1,126 +1,144 @@
 ---
 title: Privacy & Security
-description: Understanding privacy controls and security features
+description: Data protection, Face ID rules, trust levels, and Social Recovery
 ---
 
 # Privacy & Security
 
-Solidarity is built with privacy at its core. Learn how we protect your information.
-
-## Your Data Stays Local
-
-### On-Device Storage
-- All cards stored encrypted on your device
-- No cloud storage or central servers
-- You control who gets what information
-
-### No Tracking
-- No analytics or telemetry
-- No account creation required
-- No data collection by default
-
-### Offline-First
-- Works without internet connection
-- Peer-to-peer sharing doesn't require servers
-- Data never leaves your control
-
-## Zero-Knowledge Proofs
-
-### What are Zero-Knowledge Proofs?
-
-Zero-knowledge proofs allow you to prove something is true without revealing the underlying information.
-
-### How Solidarity Uses ZK Proofs
-
-**Prove group membership without revealing identity:**
-- Verify you work at a company without sharing your name
-- Prove attendance at an event without disclosing details
-- Confirm membership in an organization anonymously
-
-**Benefits:**
-- Cryptographically secure verification
-- No trusted third parties required
-- Complete privacy preservation
-
-## Granular Privacy Controls
-
-### Three Privacy Levels
-
-**Public** - Anyone can see
-- Use for: Large events, public networking
-- Contains: Basic professional information
-
-**Professional** - Verified contacts only
-- Use for: Business meetings, client interactions
-- Contains: Full work contact details
-
-**Personal** - Trusted connections
-- Use for: Close contacts, personal network
-- Contains: Personal phone, private social media
-
-### Dynamic Privacy
-
-- Update privacy levels anytime
-- Revoke access when needed
-- Different information for different contexts
-
-## Security Best Practices
-
-### For Sharing
-1. **Start minimal** - Share less, add more as trust builds
-2. **Review regularly** - Check what you've shared
-3. **Use appropriate levels** - Match privacy to context
-4. **Verify recipients** - Use ZK proofs when available
-
-### For Receiving
-1. **Verify sources** - Check group membership when possible
-2. **Organize contacts** - Keep track of where you met people
-3. **Update information** - Remove outdated contacts
-4. **Respect privacy** - Don't share others' information
-
-### Device Security
-1. **Enable device encryption** - Protect local data
-2. **Use strong passcode** - Secure your device
-3. **Keep iOS updated** - Latest security patches
-4. **Regular backups** - Don't lose your cards
-
-## Privacy FAQ
-
-### Q: Can others see my information without my permission?
-**A:** No. You must explicitly share your card for others to see any information.
-
-### Q: What happens if I lose my phone?
-**A:** Your cards are encrypted on-device. Without your passcode, they cannot be accessed.
-
-### Q: Can Solidarity track who I share with?
-**A:** No. All sharing happens peer-to-peer or via QR codes. We have no visibility into your sharing activity.
-
-### Q: How does group verification work?
-**A:** Using zero-knowledge proofs, you can prove membership without revealing your identity. The verification is cryptographic and doesn't require a central authority.
-
-### Q: Can I delete information after sharing?
-**A:** You can stop sharing information, but once someone has received your card, you cannot remotely delete it from their device. Choose your privacy level carefully.
-
-## Troubleshooting Privacy Issues
-
-### Missing Information
-
-**Problem:** Received card is missing expected information
-
-**Solution:**
-- Check the privacy level used for sharing
-- Ask sender to reshare with appropriate level
-- Verify you're in the right group if applicable
-
-### Unwanted Contact
-
-**Problem:** Someone has your information you don't want them to have
-
-**Solution:**
-- Review your sharing history
-- Adjust privacy levels for future sharing
-- Contact the person directly to request removal
+Solidarity's privacy is designed at the base layer, not bolted on. Here's how data is protected, when Face ID is required, and how the trust level system works.
 
 ---
 
-Your privacy is your right. Solidarity gives you the tools to protect it.
+## All Data Stays On-Device
+
+| Data Type | Storage | Encryption |
+|-----------|---------|------------|
+| DID Master Key + per-RP Keys | iOS Keychain (iCloud Keychain sync) | Hardware + Apple E2EE |
+| Credentials (VC) | SwiftData (App sandbox) | iOS Data Protection |
+| Contacts | SwiftData (App sandbox) | iOS Data Protection |
+| ZK Proofs | SwiftData (App sandbox) | iOS Data Protection |
+| Settings | UserDefaults | None (non-sensitive) |
+| Recovery Bundle | iCloud Drive (non-Keychain) | AES-GCM + ECIES |
+
+**Zero tracking**: No remote server records your sharing activity. No analytics. No telemetry. No accounts.
+
+---
+
+## Face ID Rules
+
+Users never need to touch a private key, seed phrase, or any cryptographic detail. "Face ID is your identity."
+
+### Operations that require Face ID
+
+| Operation | Reason |
+|-----------|--------|
+| Save passport after scanning | Signing the credential |
+| Face-to-face card exchange | Signing the exchange request |
+| Present proof | Signing the VP token |
+| Delete credential | Destructive operation |
+| Export all data / social graph | High-sensitivity |
+| Set up Social Recovery | Involves key backup |
+| Guardian confirms recovery request | Releases Shamir share |
+
+### Operations that don't require Face ID
+
+| Operation | Reason |
+|-----------|--------|
+| Browse contacts | Low sensitivity |
+| View credential details | Verified once at app launch |
+| Change settings | Non-destructive |
+
+**UI Handshake pattern**: Show an in-app confirmation screen (describing what's about to happen) *before* triggering the system Face ID prompt. Users never get a mysterious biometric request.
+
+---
+
+## Trust Level System
+
+Every credential card must display trust level badge (color + text), trust anchor name, and verification method prominently.
+
+| Level | Badge | Source | Verification |
+|-------|-------|--------|--------------|
+| **L3 — Government** | 🟢 | Passport NFC chip | ZKP (mopro) or NFC direct |
+| **L2 — Institution** | 🔵 | Institution-issued VC (v2) | VC signature verification |
+| **L1 — Self-issued** | ⚪ | Self-filled / Graph Credential | No third-party verification |
+
+**Code**: `solidarity/Models/IdentityEntities.swift`
+
+---
+
+## Zero-Knowledge Proofs (ZKP)
+
+Passport ZKP lets you prove to anyone — without revealing passport data — that you:
+
+- Are **18+** (without disclosing date of birth)
+- Are a **real human** (without disclosing name, nationality, or passport number)
+
+Technical path: OpenPassport Noir circuit + mopro (on-device, 5-15 seconds). See [Zero-Knowledge Proofs architecture](/architecture/zero-knowledge) for details.
+
+---
+
+## Pairwise DID (Per-Verifier Isolation)
+
+Each verifier (RP) gets an independent key pair — they cannot correlate users across services:
+
+```
+Keychain
+  ├─ "solidarity.master"         → did:key (VC issuance, face-to-face exchange)
+  ├─ "solidarity.rp.bar-abc.com" → did:key (proof presentation to Bar ABC)
+  └─ "solidarity.rp.example.com" → did:key (login to example.com)
+```
+
+Each RP sees a different DID. Cross-RP correlation is impossible by design.
+
+---
+
+## Social Recovery (Shamir Secret Sharing)
+
+### Concept
+
+Shamir's Secret Sharing splits the DID Master Key recovery secret into N shares, each encrypted for a guardian. In a disaster, collecting `threshold` guardian confirmations reconstructs the key.
+
+**Prerequisite**: at least 5 face-to-face verified contacts.
+
+### Setup Flow [SR-1]
+
+1. App recommends 5 verified contacts as guardians (adjustable, 3–7)
+2. Confirm guardian list + threshold ("5 guardians, 3 needed to recover")
+3. Face ID confirm
+
+System actions (invisible):
+- Generate Recovery Secret (256-bit random)
+- Shamir SSS: split into N shares, threshold = ⌈N/2⌉+1
+- Encrypt each share with guardian's DID public key (ECIES)
+- AES-GCM encrypt Master Key backup with Recovery Secret
+- Bundle → iCloud Drive
+
+**Guardian design**: guardians don't need to pre-consent; guardians don't know each other's identities; Recovery Secret itself is never stored anywhere.
+
+### Recovery Flow [SR-2]
+
+```mermaid
+flowchart TD
+    A[New device, install App] --> B[Load Recovery Bundle\nfrom iCloud Drive or file]
+    B --> C[Show guardian list]
+    C --> D[Contact guardians outside app\ncall / message / meet in person]
+    D --> E[Guardian in their App:\nFace ID → decrypt share\n→ transfer via Proximity/QR]
+    E --> F{Collected threshold shares?}
+    F -- Yes --> G[Reconstruct Recovery Secret\n→ decrypt Master Key]
+    G --> H[Store in new device Keychain]
+    H --> I[Prompt to re-scan passport\nto rebuild ZK credentials]
+    F -- No --> D
+```
+
+### Security Analysis
+
+| Attack Scenario | Defense |
+|----------------|---------|
+| Guardian collusion | Threshold design + guardians don't know each other |
+| Recovery Bundle leaked | Shares are encrypted with guardian public keys |
+| Guardian device stolen | Each share requires Face ID to access |
+| Guardian unreachable | Threshold allows partial guardian failure; update list periodically |
+
+**Code**:
+- `solidarity/Services/Recovery/`
+- `solidarity/Views/SettingsViews/` (Social Recovery settings)

@@ -1,27 +1,58 @@
 ---
 title: Usage Guide
-description: How to use Solidarity for secure business card sharing
+description: Solidarity's three main user journeys
 ---
 
 # Usage Guide
 
-Learn how to use Solidarity for secure, privacy-focused business card sharing in various scenarios.
+Solidarity is organized around three core journeys, each corresponding to a major use case.
 
-## Getting Started
+```mermaid
+flowchart LR
+    A[Download App] --> B[Journey 1\nOnboarding]
+    B --> C{Have passport?}
+    C -- Yes --> D[Journey 1a\nPassport Scan]
+    C -- No --> E[Enter Tab Bar]
+    D --> E
+    E --> F[Journey 2\nFace-to-Face Exchange]
+    E --> G[Journey 3\nPresent ZKP Proof]
+```
 
-- **[Quick Start](/docs/usage/quick-start)** - Create your first digital business card
-- **[App Features](/docs/usage/features)** - Understanding Cards, Match, Shoutout, and ID
-- **[Use Cases](/docs/usage/use-cases)** - Common scenarios and best practices
-- **[Sharing Methods](/docs/usage/sharing-methods)** - Different ways to share your card
-- **[Privacy & Security](/docs/usage/privacy-security)** - Understanding privacy controls
+---
 
-## Overview
+## Journey 1 — Onboarding
 
-Solidarity puts you in control of your networking privacy with:
+Set up in 3 minutes: create your DID identity, import contacts, and scan your passport.
 
-- **Three privacy levels** (Public, Professional, Personal)
-- **Multiple sharing methods** (QR codes, P2P, Apple Wallet)
-- **Zero-knowledge proofs** for anonymous verification
-- **Local-first approach** - your data never leaves your device
+**Key screens**: O-1 Welcome → O-2 Keychain Setup → O-3 Import Contacts → O-4 Scan Passport → O-5 Complete
 
-Choose the section that best fits your needs, or start with the Quick Start guide to create your first card.
+[Details →](/usage/quick-start)
+
+---
+
+## Journey 2 — Face-to-Face Card Exchange
+
+Both users open the app, discover each other via Bluetooth proximity, and exchange cryptographically signed cards. Supports bidirectional ephemeral messages.
+
+**Key screens**: EX-1 Discovery → EX-2 Confirm Card → EX-5 Exchange Success + Ephemeral Message
+
+**Mutual tap fast path**: if both parties tap each other, skip request/accept and go straight to confirm.
+
+[Details →](/usage/sharing-methods)
+
+---
+
+## Journey 3 — Present ZKP Proof
+
+Present passport-derived zero-knowledge proofs (age ≥ 18, humanhood) to verifiers. Supports App-to-App scan and No-App Web verification.
+
+**Key screens**: PR-1b Smart QR Display → VF-1 Verification Success (verifier side)
+
+[Details →](/usage/use-cases)
+
+---
+
+## Other Topics
+
+- [App Features →](/usage/features) — Screen structure and component breakdown for all three tabs
+- [Privacy & Security →](/usage/privacy-security) — Data protection, Face ID rules, trust levels
