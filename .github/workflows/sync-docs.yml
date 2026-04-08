@@ -93,6 +93,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          gh label create "automated" --color "0075ca" --description "Automated sync PR" --force
+
           {
             printf '## Docs Sync — solidarity `%s`\n\n' "$SOURCE_TAG"
             echo "Automated docs review triggered by a new release."
