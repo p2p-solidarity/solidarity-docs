@@ -1,0 +1,122 @@
+name: Sync Docs with Solidarity Release
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Every Monday at 02:00 UTC
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to sync (blank = latest stable release)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  SOURCE_REPO: p2p-solidarity/solidarity
+
+jobs:
+  detect-release:
+    name: Detect release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      should_sync: ${{ steps.dedup.outputs.should_sync }}
+
+    steps:
+      - name: Resolve tag
+        id: resolve
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(curl -fsSL \
+              https://api.github.com/repos/${{ env.SOURCE_REPO }}/releases/latest \
+              | jq -r '.tag_name')
+            [ -z "$TAG" ] || [ "$TAG" = "null" ] && { echo "::error::No release tag found"; exit 1; }
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing PR
+        id: dedup
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COUNT=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --search "\"solidarity ${{ steps.resolve.outputs.tag }}\" in:title" \
+            --state all --json number --jq 'length')
+          echo "should_sync=$([ "$COUNT" -gt 0 ] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+
+  prepare-sync:
+    name: Spec analysis & trigger Claude
+    needs: detect-release
+    if: needs.detect-release.outputs.should_sync == 'true'
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_TAG: ${{ needs.detect-release.outputs.tag }}
+      BRANCH: docs/sync-solidarity-${{ needs.detect-release.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone solidarity source at tag
+        run: |
+          git clone --depth 1 --branch "$SOURCE_TAG" \
+            https://github.com/${{ env.SOURCE_REPO }}.git _source
+
+      - name: Run spec analysis
+        id: spec
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/spec-analysis.sh
+
+      - name: Fetch release notes
+        run: |
+          curl -fsSL \
+            "https://api.github.com/repos/${{ env.SOURCE_REPO }}/releases/tags/$SOURCE_TAG" \
+            | jq -r '.body // "No release notes provided."' > _release-notes.md
+
+      - name: Create branch & push context files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add _spec-analysis.md _release-notes.md .github/scripts/report-format.md
+          git commit -m "chore: add spec analysis and release notes for solidarity $SOURCE_TAG"
+          git push origin "$BRANCH"
+
+      - name: Open draft PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            printf '## Docs Sync — solidarity `%s`\n\n' "$SOURCE_TAG"
+            echo "Automated docs review triggered by a new release."
+            echo "Claude is performing a two-phase analysis — this PR will be updated with changes and a sync report."
+            echo ""
+            echo "---"
+            echo ""
+            cat _spec-analysis.md
+            echo ""
+            echo "---"
+            echo ""
+            echo "> Review each changed file carefully before merging."
+          } > /tmp/pr-body.md
+
+          PR_URL=$(gh pr create \
+            --title "docs: sync with solidarity $SOURCE_TAG" \
+            --body-file /tmp/pr-body.md \
+            --base main --head "$BRANCH" \
+            --draft --label "automated")
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger Claude via @mention
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMENT=$(envsubst '${SOURCE_TAG} ${SOURCE_REPO}' < .github/scripts/claude-prompt.md)
+          gh pr comment "${{ steps.pr.outputs.pr_url }}" --body "$COMMENT"
