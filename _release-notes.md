@@ -1,0 +1,104 @@
+## What's Changed
+
+1.3.0: light-theme Figma alignment for People, Share, Me, Settings by @kidneyweakx in #11
+
+### Commits
+
+- 1eedcc9 feat(localization): add toast notifications for backup process and success messages
+- bbc1bb2 feat(backup): enhance backup process with user feedback notifications
+- 624d801 feat(qr): implement chunked QR code handling and playback controls
+- ac0596a fix(identity): bypass iCloud Keychain phantoms with v2 master alias and local escape hatch
+- 08ff753 fix(identity): gate iCloud restore on synced keys, drop did:key:pending, compress VP QR
+- 756f102 feat(matching): add chat composer with preset chips and text input
+- 41afca6 chore(i18n): refresh Localizable strings
+- 3ce0df5 chore(i18n): refresh Localizable strings
+- 9ebb6f9 refactor(sharing): align Lightning Peer card and NearbyPeersSheet with mutedSurface block style
+- a111534 refactor(card): convert BusinessCardFormView to block style for unified Edit Identity Card
+- 9d09559 refactor(oidc): redesign OIDCRequestView with hero, copy chip, and clearer states
+- da56d6e feat(legal): render Privacy Policy and ToS from bundled markdown via shared MarkdownDocumentView
+- 8cd34d7 refactor(settings): convert DIDListSheet to block style
+- f3bc866 fix(settings): drop duplicate back arrow on push views and add explicit back in sheet wrappers
+- 999fc02 fix(settings): use xmark.bin for Reset Passport Credential icon
+- 5e1a7e7 chore(i18n): refresh Localizable strings for renamed OIDC and ZK strings
+- 3f33109 refactor(passport): align PassportOnboardingFlowView cards with mutedSurface and shared back toolbar
+- 3b91706 refactor(zk): convert ZKSettingsView to block style
+- a6a4545 refactor(oidc): drop redundant inline title and align OIDCRequestView with block style
+- 0959833 refactor(settings): unify Done buttons to chevron+title at top-leading via SettingsBackToolbar
+- 63614b1 fix(settings): replace invalid doc.badge.xmark with doc.badge.minus
+- 6edf3db chore(i18n): refresh Localizable strings for renamed settings sections
+- 5c2e910 refactor(settings): align Appearance, Notifications, and GroupManagement custom containers with softened style
+- e8ecb8e refactor(settings): drop bracketed section titles in favor of Me-tab Title Case
+- b5d51e2 refactor(settings): soften block components with mutedSurface, rounded corners, and Me-tab typography
+- 9bb7892 refactor(group): align GroupManagementView with block style and drop unused SimpleNodeRow
+- 9f20d64 refactor(settings): convert Appearance, Security, DataSync, Backup, Notifications, and VC views to block style
+- 42cfbf8 refactor(settings): convert root SettingsView and Me-tab developer section to block style
+- 0b28a85 refactor(settings): use shared block components in AdvancedSettingsView
+- 4e8e605 feat(settings): add shared SettingsBlock terminal-style components
+- a677881 docs(claude): tighten core rules with security-path and biometric guards
+- 7085643 refactor(sharing): enhance animal avatar handling
+- 946e274 refactor(sharing): enhance peer disconnection handling
+- 1dd252f refactor(identity): improve handling of declared proof claims to ensure only trusted claims are propagated based on issuer verification status
+- bedf7b7 refactor(sharing): enhance tap target for ShareSettings by making the entire row tappable and improving layout consistency
+- ea427a8 refactor(sharing): update ProximityIdentitySigner to return Result type for better error handling and improve signature processing in ProximityManager
+- 58105c4 feat(ui): add toast overlay to MeTabView for improved user notifications
+- 1889766 feat(invitation): implement incoming invitation overlay and enhance peer disconnection handling
+- f1dcaa9 feat(identity): implement declared proof claims handling in identity models and UI for enhanced user clarity
+- d5668fe feat(identity): enhance proof claims handling to prevent ghost claims and ensure accurate VC issuance
+- b96f062 refactor(ui): update color scheme across various views to use theme colors for improved consistency
+- fc2da13 feat(sharing): streamline spatial trigger handling and improve connection state management
+- 7d51994 feat(sharing): implement connection management and user feedback in peer interactions
+- 6b41f7a feat(sharing): enhance QR code generation with improved state management and user feedback
+- 2fee2d5 fix(qr): update QR code generation to comply with OID4VP authorization request requirements
+- 749d3dc fix(onboarding): fix iCloud backup sequence
+- 0aa5173 ui(people): adjust layout in PeopleListView
+- 278918e feat(people): add manual contact entry sheet and integrate into PeopleListView
+- 73bae89 i18n(me/people/share): replace hardcoded zh-Hant, wrap strings via LocalizedStringKey, default to English
+- 0aa22b2 feat(people): redesign contact row to match Figma 723:2195 with radar date and context tag
+- 4482086 fix(privacy): wrap card-name logs in #if DEBUG to keep PII out of release logs
+- add0674 fix(privacy): redact passport nationality from production logs
+- f761628 fix(identity): clear DID descriptor cache when signing key resets
+- 2447065 test(fix): bypass IdentityCacheStore in didSignatureRoundTrips to dodge stale cache
+- cef5470 fix(security): bind GroupInvite trust anchor strictly to identity key
+- 57565a1 test(fix): drop EncryptionManager tearDown that race-deleted shared key under parallel runtime
+- 4e6fedf test(fix): align stale assertions with current model state
+- 185fca0 test(fix): use AppBranding constant + skip oversized .zkProof QR generation
+- 254a626 test(fix): supply skill fixtures for AttributeProof/RangeProof after sample slimmed
+- 3f09f4c fix(security): bind GroupInvite/Join signature to a known contact key
+- ec25fc3 fix(log): report actual trustLevel after Semaphore fallback succeeds
+- 917f1a5 chore: refresh codemap docs and tighten people-list row layout
+- fb71423 fix(security): unblock Semaphore fallback verification, cross-check envelope vs proof internals
+- 4dd4252 test(security): cover NullifierStore, OIDCNonceStore, MessageServerPinning, WrappedShardEnvelope
+- dca0778 style(lint): clear swiftlint warnings introduced in security round
+- 5003972 fix(model): preserve exchange metadata across Contact ↔ ContactEntity round-trip
+- 4191e2d fix(security): add trustedSignerPublicKey cross-anchor check on proof verification
+- 14a177c feat(ui): add local pulse feedback when sending sakura over WebRTC
+- b826afe feat(zk): wire Generate Group Proof button to Semaphore proof flow
+- acfb158 feat(zk): wire ZK identity deletion behind biometric gate
+- 666d0b4 fix(security): persist OIDC nonces, redact ZK logs, cap payloads, move tokens to Keychain
+- 51aa5e8 fix(security): bind proximity exchange signatures to DID, harden TLS pin and deeplinks
+- 44a9bc3 fix(security): recompute contact verification status from local crypto state
+- f4182e4 fix(security): bound import sizes and add complete file protection on private storage
+- d48f86c fix(security): tighten CloudKit predicates, scope private records, encrypt vault metadata
+- 4b1274e fix(security): tighten ZK/Passport correctness — full-value commits, MRZ mismatch hard fail, BAC/PACE check
+- f41ea53 fix(security): OIDC PKCE/redirect/c_nonce, did:ethr removal, JWT alg check, proof exp
+- 5a89eea fix(security): HKDF salt, keychain accessibility, remove in-memory key fallback
+- eb8d8ac fix(security): correct Shamir field prime and division, per-chunk AES-GCM nonces, encrypted backup
+- 33bec7f fix(security): keychain-backed vault keys, authenticated shard recovery
+- 581cf81 fix(security): gate trust level on CSCA, decouple age signing, add nullifier replay tracking
+- 76e4cc2 fix(security): pin MessageService TLS, sign group invites, bound QR decompression
+- ac8a41b fix(security): verify VC/OIDC signatures and reject unsafe defaults
+- 7091b8f ui(figma): redesign me/credential/passport-setup screens with adaptive dark tokens
+- 7eee21a ui(theme): align dark mode with Figma palette across me/share/people
+- c9f9332 style(lint): clear swiftlint violations across files, models, services, and views
+- 18ab1d6 ui(settings): align settings screen with Figma redesign
+- 1de08dc ui(share): drop redundant scan/share row already covered by toolbar and card
+- 23aed27 ui(me): align me tab with Figma, drop manual input tile
+- ff6211e ui(me): me card and share qr view
+- 3a9b23a ui(share): align share tab card with Figma redesign
+- 8f867aa ui(people): align person detail + list with Figma redesign
+- 204402b ui(people): animal chara profile
+- 629a898 ui(theme): light theme color palettee
+- 5093b8a ui(people): folder paper stack illustration
+
+**Full Changelog**: https://github.com/p2p-solidarity/solidarity/compare/1.2.2...1.3.0
+
