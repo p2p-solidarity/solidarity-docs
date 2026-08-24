@@ -1,0 +1,160 @@
+## What's Changed
+
+1.3.3: verified page pivot — root identity, Nostr/Bluesky bindings, Pear private exchange by @kidneyweakx in #19
+
+### Commits
+
+- d12dd80 feat(app): update screen routes, onboarding surfaces, and gate checks
+- 360dbe0 feat(contacts): add inbox cleanup and recent activity sections
+- b3c450b feat(profile): add page appearance editor and profile share components
+- 66def20 feat(storage): implement local data wipe barrier and deletion contracts
+- 6704951 feat(nitro): enforce idempotent deletion and error safety in native modules
+- 6b02251 feat(present): restore the v1.3.0 card experience
+- c9111f8 fix(present): hide protocol details from product flows
+- 0018c19 fix(scan): complete the v2 QR exchange ceremony
+- efa89c8 fix(v2): make sharing and product states honest
+- b708c9e fix(v2): close product surface gaps
+- 9d973d7 feat(scan): route v2 offers and preserve card trust
+- 61e57a0 feat(contacts): complete v2 contact management
+- c793eb9 feat(navigation): enforce v2 primary tab order
+- d64bd2a feat(page): complete v2 section hierarchy
+- eda723f feat(settings): add honest Pro plan surface
+- 0b1eff7 feat(v2): build Page and Present bio-link surfaces
+- 2e6d0e8 feat(onboarding): align setup with v2 five-step flow
+- b2b6351 feat(settings): gate developer tools and securely wipe local data
+- 138a8f0 chore: ignore local agent and macOS state
+- 238f687 fix(push): opt-in gated registration that never prompts on cold launch
+- d7fc6b6 fix(people): clear the manual contact form after a successful save
+- be0be0a perf(profile): 15-min TTL cache for https ownership, coalesce in-flight probes
+- c86f2d1 fix(me): cache badge verification result even when the tab blurs mid-check
+- 43dc329 refactor(nostr): structured publish outcome with i18n-coded relay rejections
+- fb12851 feat(me): surface backup status in the identity footer with one-tap access
+- 8fef4b1 fix(scan): stop re-prompting camera permission on remount, offer Open Settings
+- 2bd11c7 refactor(settings): retire legacy business-card QR into one canonical surface
+- daa1a6f feat(onboarding): iCloud restore failure offers retry, phrase import, or fresh start
+- 0c43485 docs(ref): C1 landed + R4 repeated-behavior audit findings into backlog (top pain, 2 security items R29/R30)
+- 477d7df fix(onboarding): audited bug batch — retry, dead ends, honest completion, silent Drive probe
+- fd90dd0 docs(ref): grilling decisions G1-G5 (D6 Nostr-first, single disclosure model, recovery 3-option, backup exposure) + UX audit backlog
+- ab18981 feat(nav): People scan entry, scan-save returns to origin, proof-request QR label
+- 6e23389 feat(me): actionable badge recovery, 1-tap add link, direct avatar, QR image share
+- 382a52a fix(profile): PDS uploads public projection + atproto dual-verify, honest Nostr short-link marker
+- a4dccb5 docs(ref): W1-W3 Me-chain Linktree round landed (parallel codex, integrated + committed)
+- 555c0a8 feat(me): wire Linktree-simple chains — page composition, add route, i18n
+- e7a2778 feat(me): URL-first hero, collapsed identity footer, plain-language empty states
+- dccbe97 feat(me): copy-first share sheet with automatic honest URL selection
+- 2e07f28 feat(me): Linktree-style add-link sheet, compact link editor, single-sign save chain
+- 9cc021f docs(ref): NIP-78 public disclosure end-to-end (web viewer verify landed)
+- c97f95a docs(ref): NIP-78 public disclosure app+shared landed; web viewer verify in progress
+- 84946e5 feat(disclosure): opt-in NIP-78 public passport claim (presence-only, device self-attested, root-signed)
+- 08b1a7f feat(shared): presence-only public disclosure record — no-PII evidence gate, fail-closed verify + vectors
+- 5ef1166 docs(ref): Web-B landed — web↔app signing loop end-to-end complete
+- 61c83e1 docs(ref): Web-A dns/ens viewer resolution landed; Web-B (web→app signing) in progress
+- d7dcf39 docs(ref): Wave 2 app-side (T4a/T7) done + web re-bundle; web wiring in progress
+- 525e525 fix(profile): adoptSignedProfile resets T7 projections (prevents republishing prior public projection)
+- d70abc8 feat(profile): three-tier link visibility + public/shared/full signed projections + pre-publish preview
+- ddb8e69 feat(websign): app-side per-action root signing + review UI + QR/deep-link entry
+- 1b219f5 fix(credentials): refuse opaque-format credential in QR presentation (align with buildVpToken fail-closed)
+- ea6bc43 feat(pear): mutual card exchange + snapshot freshness/conflict merge policy
+- 8a319dc fix(credentials): real selective disclosure — stop full-VC leak in presentations, verify VC signature on import
+- af1b762 feat(me): offer verified @handle short link in share surface (dns/ens/atproto)
+- 3ee540a feat(shared): webSign request/response envelopes + verify primitives with adversarial vectors
+- 75f7646 docs(ref): mark Wave 1 parallel dispatch + delivery order in 1.3.3 research notes
+- 7bc7d64 feat(handles): app read path for dns/ens handles — DoH dual-resolver, eth RPC IO, scan/deeplink wiring
+- 76f6560 feat(shared): dns/ens read-level handle resolvers — didPointer grammar, sources seam, bidirectional badge gates + vectors
+- 6528cc0 docs(ref): 1.3.3 publishing/pairing/linking research + grill decisions G1-G6
+- 701d975 chore(share): point Verified Page share URLs at app.solidarity.gg
+- 4364ec9 feat(ux): onboarding entrance motion + publish constellation and detail animation
+- a14cc2f fix(spruce-did): restore legacy SE key lookup shape — CryptoTokenKit -5 regression from T7
+- 63d3701 fix(nav): guard every back navigation against an empty stack (unhandled GO_BACK)
+- d834d0c feat(badges): trust fresh verification state; re-verify only on TTL, edit, or publish (S8h)
+- e59e2e0 docs(plan): record S8f publish reliability and S8g T7 signing-key race fix
+- fc4e02a feat(keychain): converge double-minted syncable signing keys deterministically (T7, S8g)
+- 6a8d53c fix(backup): never silently mint a fresh identity when the iCloud phrase read fails
+- f54652e fix(nostr): swap dead relay, retry transport failures, accept partial publish (S8f)
+- 44cd3ac fix(ios): drop unused react-native-cloud-storage — its iCloud observer aborted the app
+- 207c5d7 feat(ux): enhance ThemedButton with dynamic theming and haptic feedback
+- b616fbf feat(me): in-field link prefixes for platform handles and https
+- e410c69 fix(ios): stage normalize-ios-scheme.sh into the post-clone fixture test
+- 59f6e7f fix(ios): route bun run ios through the Xcode Cloud scheme casing
+- 9ad054b docs(plan): record S8 Linktree-UX round (T1-T5) in 04-plan execution log
+- 4da9382 refactor(me): de-jargon identity and credential surfaces
+- 5e7ef9d feat(me): one-tap save-and-publish with invisible nostr provisioning
+- 7db015e feat(me): custom avatar via local photo or signed Bluesky adoption
+- 2f83e73 feat(atproto): auto-append .bsky.social with inline suffix hint
+- e092552 feat(profile): https-only link normalization with platform label presets
+- 130d73c chore(ios): pod-install regenerated pbxproj identifier churn
+- 418e2a8 fix(backup): survive Swift-era archive shape + dated archive picker with per-file restore
+- 8499bb1 fix(ci): align bundle-phase node with bun arch + probe metro config chain post-clone
+- e415729 fix(ci): stage lightningcss binding for node's arch when bun and node disagree on Xcode Cloud
+- caf7f55 fix(identity): restore Root Identity + Backup Archive across devices from iCloud
+- c2cff75 fix(deps): pin lightningcss to one version to fix Xcode Cloud archive failure
+- 679b73c docs(identity): diagnose cross-device root-key restore gap + backup key ADR
+- e0e0b1b fix(ci): normalize Expo-generated scheme back to Xcode Cloud's lowercase casing
+- 4a6316e fix(ci): scheme normalize repairs to canonical Solidarity + prune dead code
+- 2f0dead chore(ios): prebuild-regenerated project without sprucekit SPM reference
+- 99ace72 feat(identity): root did primary, card signing key anchored in settings/dids
+- 11be37b refactor(spruce-did): drop SpruceID SDK, keep 8-method hardware signing shell
+- 8223774 feat(onboarding): connect step with real first badge + Bluesky wizard
+- 911e9d2 feat(me): WYSIWYG profile page with badge chips, single QR, bindings IA move
+- 28c7b68 feat(atproto): PDS profile record write + connect service + binding IO adapter
+- 390f863 feat(shared): pluggable handle resolver + atproto badge bidirectional verify
+- a94607b docs(1.3.3): record grill decisions D1-D10 and S1-S7 Bluesky spine tasks
+- d81ce39 feat(nostr): npub short-link resolve with binding gate + Me edit input polish
+- 49d6dec refactor: testing scripts, improve QR handling, and enforce color token rules
+- e8c5aaa docs(1.3.3): drop stale CloudKit group-sync deploy doc + dead proximity TODOs (#14)
+- 2cf4b92 chore(release): bump to 1.3.3 + rename Xcode scheme to Solidarity
+- 185ce20 docs(ref): move web-track plans to solidarity-web repo + record A5b phase
+- 4684947 chore(test/lint): react-native test mock + relax eslint to warnings
+- 73cf9d3 fix(nostr): don't overwrite profile on blind kind-0 read
+- 2e14fed feat(pear): anchor card-signing DID to authenticated root DID (A5b)
+- 1b1b4fd fix(atproto): https-only on authorization-server metadata endpoints
+- 4a79ce2 fix(atproto): validate handle syntax + https-only endpoints + htu normalize + no-throw
+- f108a3b feat(atproto): OAuth (PAR+PKCE+DPoP) with secure token storage
+- 8b7aecd fix(pear): scope pear/card deep links to product hosts + dedup error map
+- e431901 feat(pear): solidarity://pear/<did> deep link into private connect flow
+- 74ddd34 fix(pear): correct claim-type threading in present builder + scope test mock
+- 6e41259 feat(pear): SD-JWT selective-disclosure presentation over private channel
+- 5a8bb8d fix(pear): dedicated cardRelease biometric reason (restore vault unlock grace)
+- da5799f fix(pear): connection-scope channels (prevent card leak to uninvited topic peers) + fresh biometric on release
+- 0826c86 feat(pear): full-card exchange UI + consent sheet with Face ID release gate
+- 4772b3d fix(pear): reqId-correlate protocol responses (prevent late-response misattribution)
+- 87b220a feat(pear): v1 application protocol — card exchange + presentation state machine
+- 7ab90e1 fix(nostr): mask nsec input + eliminate connect-status flash
+- 1d7bdb9 feat(nostr): Connect-Nostr wizard + live badge verification (first green check)
+- df99847 test(shared): pin non-object kind-0 content → declared + doc path fix
+- 16a35ff feat(shared): Nostr binding bidirectional verifier + conformance vectors
+- 4b7e409 feat(nostr): publish profile (kind 30078) + kind-0 did:key binding + npub encode
+- de3279f fix(nostr): never forward scalar bytes in error text + derive.ts doc correction
+- f56e399 feat(nostr): production user key — mnemonic-derived or nsec import
+- 6697e9e fix(pear): replay last ctrl to late subscribers (structural race fix) + handshake rejection guard
+- 2074b85 feat(pear): mutual DID-challenge handshake + lane lifecycle manager + PoC runbook
+- d22d33b docs(ref): plan amendments — shared-package reuse, A1.5/A10.4/A12 updates, web repo split
+- 65292f2 chore: strip accidentally-committed apps/web WIP (scripts + lock stanza) from pear commit
+- c2f63af feat(pear): hyperswarm worklet + lane IPC + frame codec + loopback lab
+- c83efe6 fix(dev): pear-echo developerMode guard + worklet lifecycle/error states
+- d95b02f chore(pear): react-native-bare-kit + dev-client pipeline
+- 48e5da4 feat(onboarding): converge to verified-page flow (key → backup → page → share)
+- 0c019bb fix(profile): bounded link-page fetch (timeout+size cap) + normalized declared ids
+- 319adbd feat(profile): Linktree import — Me links funnel + declared contacts in People
+- 020e128 feat(people): surface verified-page snapshots in People tab + confirm label consistency
+- 1afb4a2 feat(verify): scan verified-page fragment QR → local verify → save to People
+- 1aeac2b test(profile): pin monotonic updatedAt under backward clock skew
+- 0c7a274 chore: drop untracked apps/web workspace refs from lockfile
+- 27c748d feat(profile): local profile store + Me editor + VerifiedCard real data with fragment QR
+- f1cb117 fix(shared): url scheme allowlist on profile links + bounded fragment decode
+- bd4e466 fix(identity): honest iCloud sync-requires-keychain-enabled copy + checklist correction
+- 1c2d97d feat(shared): profile record schema + fragment codec with vectors
+- 397d182 feat(identity): real iCloud Keychain sync for root seed via secrets-vault synchronizable items
+- c574c69 fix(identity): honest iCloud coming-soon state, replay mnemonic path, trim test hooks from barrel
+- e015a52 feat(identity): seed-derived root key, iCloud-first backup with consent, free import/export
+- 91414a9 feat(shared): DID-challenge + unified mnemonic derivation with vectors
+- 1e327f9 fix(shared): single-hash ES256 (prehash:false), strict JWS header, regenerated vectors
+- 6656919 feat(shared): canonical JSON + compact JWS + did:key conformance vectors
+- 6872f27 docs: SpruceKit slim-down inventory
+- 3d18955 feat(1.3.3): Me becomes verified card, credentials move to Verify tab
+- 77f0a29 refactor(1.3.3): drop stale doc-comment references to deleted proximity code
+- f72a0ef refactor(1.3.3): remove Sharing tab, proximity transport, CloudKit group sync
+- bc8a27b docs(1.3.3): verified-page spec set (01-03) + implementation plans (04-06)
+
+**Full Changelog**: https://github.com/p2p-solidarity/solidarity/compare/1.3.2...1.3.3
+
