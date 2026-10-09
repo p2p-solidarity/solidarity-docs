@@ -1,0 +1,35 @@
+/*
+ * Archive notice (the Nextra <Banner> in app/layout.jsx). Nextra paints the
+ * banner bar dark with light text in both themes, so the link keeps the light
+ * text color and relies on an underline to read as a link.
+ */
+.archive-banner {
+  text-wrap: balance;
+}
+
+/* Below Nextra's md breakpoint the banner is sticky above the sticky navbar,
+   so keep it compact there. */
+@media (max-width: 767.98px) {
+  .archive-banner {
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+    padding-block: 0.375rem;
+  }
+}
+
+.archive-banner a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.archive-banner a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.archive-banner a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 2px;
+}

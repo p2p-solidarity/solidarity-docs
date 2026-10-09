@@ -1,8 +1,10 @@
 name: Sync Docs with Solidarity Release
 
 on:
-  schedule:
-    - cron: '0 2 * * 1'  # Every Monday at 02:00 UTC
+  # No weekly schedule: these docs are archived at tag archive/1.x-final.
+  # A scheduled run would rewrite them from the latest p2p-solidarity/solidarity
+  # release, and from 2.0.0 on that release is creds, not Solid(ar)ity 1.x.
+  # Manual runs are still possible.
   workflow_dispatch:
     inputs:
       tag:

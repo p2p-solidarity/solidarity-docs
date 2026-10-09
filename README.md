@@ -1,5 +1,12 @@
 # Solidarity Documentation
 
+> [!IMPORTANT]
+> **Archived.** These docs describe Solid(ar)ity 1.x and are no longer updated. Solidarity now builds creds → [creds.id](https://creds.id).
+>
+> - The final 1.x docs are tagged [`archive/1.x-final`](https://github.com/p2p-solidarity/solidarity-docs/tree/archive/1.x-final).
+> - [docs.solidarity.gg](https://docs.solidarity.gg) stays online as a read-only archive. Every page shows a non-dismissible archive banner and is marked `noindex` (an `X-Robots-Tag` header from `public/_headers` plus a robots meta tag), so it drops out of search results while staying reachable.
+> - The release-sync workflow (`.github/workflows/sync-docs.yml`) no longer runs on a weekly schedule, so a new `p2p-solidarity/solidarity` release can't overwrite these docs.
+
 Official documentation for [Solidarity](https://docs.solidarity.gg) - Privacy-first business card sharing app.
 
 ## 🚀 Quick Start

@@ -1,0 +1,6 @@
+# Cloudflare Pages response headers.
+# docs.solidarity.gg is an archive of the Solid(ar)ity 1.x docs: it stays
+# viewable but should drop out of search results. Crawling stays allowed
+# (no robots.txt Disallow) so crawlers can see this header.
+/*
+  X-Robots-Tag: noindex
